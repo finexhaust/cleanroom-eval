@@ -1,9 +1,27 @@
-# BankingEnv / cleanroom-eval 2.0
+# BankingEnv / cleanroom-eval 2.1
 
-Document-grounded synthetic banking operations, dataset v3.
+Document-grounded synthetic banking operations, dataset v3.1.
 The two public repositories now ship the same runtime and development dataset
 from one allowlisted build. The historical 40-case fixtures remain available
 for reproduction; they are no longer the current benchmark.
+
+## Dataset 3.1, what changed from 3.0
+
+Runtime 2.1 ships dataset 3.1. The development split is regenerated from the
+same development seed as 3.0 with one authored-policy clarification: the
+evidence family's calculation rule now reads "count distinct valid proof
+records from approved independent issuers; deduplicate by event_id", matching
+what the evaluator has always scored. The 20 October smoke audit had found the
+earlier wording ambiguous (unique proof records in the prose, unique issuers in
+the evaluator) and quarantined the affected cases from difficulty claims. In
+3.1, 168 of the 192 development cases are byte-identical to 3.0; the 24
+evidence cases carry the clarified policy documents and new document hashes.
+Every case's provenance records generator_version 3.1. The private evaluation
+split is regenerated with a fresh seed and stays private. Runtime 2.1 also
+ships the model-panel runner and report modules (`banking_v3.panel`,
+`banking_v3.panel_report`) and the model-panel note; the open-weight
+comparison recorded in that note was run on generation 3.0 and is not a
+difficulty measurement for 3.1, which remains unmeasured.
 
 ## Dataset and task contract
 
@@ -118,7 +136,7 @@ review; a mechanically passing generated case is a development artifact.
 Run `python -m pytest banking_v3/tests -q`. The canonical release builder
 exports explicit code/data directories, excludes evaluation seeds, private
 answers and evaluator-only historical assets, and writes a byte manifest.
-Both public repositories consume that same archive. Runtime version 2.0 and
-dataset version 3 intentionally distinguish software from fixture versions.
+Both public repositories consume that same archive. Runtime version 2.1 and
+dataset version 3.1 intentionally distinguish software from fixture versions.
 
 MIT. Every generated document is marked `CLEANROOM_SYNTHETIC`.

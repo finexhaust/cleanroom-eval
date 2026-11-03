@@ -50,7 +50,7 @@ def regenerate(output: str, development_seed: str = "bankingenv-v3-development-2
         raise AssertionError("document identity overlap")
     receipt = {"schema": "bankingenv.regeneration-receipt/v3", "prefect_flow_run_id": str(flow_run.id),
                "generated_at": datetime.now(timezone.utc).isoformat(), "code_sha256": code_commitment(),
-               "dataset_version": "3.0", "validation_level": "MECHANICAL_ONLY",
+               "dataset_version": "3.1", "validation_level": "MECHANICAL_ONLY",
                "splits": {split: {k: v for k, v in report.items() if k != "rows"} for split, report in reports.items()},
                "split_audit": {"case_id_overlap": 0, "document_id_overlap": 0, "world_id_overlap": 0,
                                "mechanism_signature_overlap": 0, "shared_workflow_primitives": True,

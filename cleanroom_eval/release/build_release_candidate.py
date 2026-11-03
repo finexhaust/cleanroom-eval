@@ -51,6 +51,7 @@ ALLOW_DIRS = (
 ALLOW_FILES = (
     "cleanroom_eval/README.md",
     "docs/bankingenv-v3.md",
+    "docs/bankingenv-v3-model-panel.md",
     "banking_v3/data/regeneration-receipt.json",
     "docs/technical-note-strategy-locking.md",
     "cleanroom_eval/evidence/__init__.py",
@@ -58,6 +59,7 @@ ALLOW_FILES = (
     "cleanroom_corpus/eval_adapters.py",
     "cleanroom_corpus/eval_export.py",
     "requirements-test.txt",
+    "requirements-banking-panel.txt",
     "LICENSE",
 )
 # Evaluator-only material must never ship, allowlist notwithstanding.
@@ -101,19 +103,19 @@ explicit allowlist, never from the source repository's history.
 - Report issues to the repository owner; do not open public issues that
   quote unpublished material.
 """
-RUNTIME_REQUIREMENTS = "cryptography==46.0.5\njsonschema==4.26.0\nprefect==3.6.20\n"
+RUNTIME_REQUIREMENTS = "cryptography==46.0.5\njsonschema==4.26.0\nprefect==3.6.20\nhttpx==0.28.1\npython-dotenv==1.2.1\n"
 PYPROJECT = """[build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cleanroom-eval"
-version = "2.0.0"
+version = "2.1.0"
 description = "Clean-room capital-markets agent evaluation: sealed synthetic episodes, task contracts, reward-hacking gates, hash-bound evidence"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
-dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.20"]
+dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.20", "httpx>=0.27", "python-dotenv>=1.0"]
 
 [tool.setuptools]
 packages = ["cleanroom_eval", "cleanroom_eval.evidence", "cleanroom_eval.release", "cleanroom_corpus", "banking_v3"]
@@ -175,7 +177,14 @@ def build_archive(out_dir: Path) -> Path:
     }
     payloads: list[tuple[str, bytes]] = []
     for path, rel in entries:
-        payloads.append((rel, path.read_bytes()))
+        blob = path.read_bytes()
+        if rel == "requirements-test.txt":
+            # Drop includes of files outside the release tree; the archive is self-contained.
+            blob = "".join(
+                line for line in blob.decode("utf-8").splitlines(keepends=True)
+                if not line.lstrip().startswith("-r ")
+            ).encode("utf-8")
+        payloads.append((rel, blob))
     for rel, blob in generated.items():
         payloads.append((rel, blob))
     payloads.sort(key=lambda pair: pair[0])
@@ -405,6 +414,7 @@ def gate_import_smoke(archive_path: Path) -> dict:
             "from cleanroom_eval.contract import ASSET_DIR\n"
             "import cleanroom_eval.episode_contract\n"
             "import banking_v3.environment, banking_v3.flow\n"
+            "import banking_v3.panel, banking_v3.panel_report\n"
             "print('IMPORT_OK')\n"
         )
         result = subprocess.run(

@@ -15,7 +15,7 @@ FORMULAS = {
     "margin": "max(0, exposure minus collateral minus threshold); zero if below minimum transfer",
     "permissions": "requested scope bitmask AND approved scope bitmask AND complement of revoked scope bitmask",
     "lifecycle": "latest effective amendment not later than the case cutoff, ordered by effective minute then revision",
-    "evidence": "count unique valid proof records from approved independent issuers",
+    "evidence": "count distinct valid proof records from approved independent issuers; deduplicate by event_id",
     "temporal": "highest contiguous acknowledged sequence after the opening sequence; ignore gaps and duplicates",
 }
 

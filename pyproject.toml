@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cleanroom-eval"
-version = "2.0.0"
+version = "2.1.0"
 description = "Clean-room capital-markets agent evaluation: sealed synthetic episodes, task contracts, reward-hacking gates, hash-bound evidence"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
-dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.20"]
+dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.20", "httpx>=0.27", "python-dotenv>=1.0"]
 
 [tool.setuptools]
 packages = ["cleanroom_eval", "cleanroom_eval.evidence", "cleanroom_eval.release", "cleanroom_corpus", "banking_v3"]

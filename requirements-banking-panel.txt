@@ -1,0 +1,4 @@
+# Live model-panel runtime; credentials and private outputs are never dependencies.
+httpx==0.28.1
+python-dotenv==1.2.1
+prefect==3.6.20

@@ -1,4 +1,4 @@
-# BankingEnv / cleanroom-eval 2.1
+# BankingEnv / cleanroom-eval 2.1.1
 
 Document-grounded synthetic banking operations, dataset v3.1.
 The two public repositories now ship the same runtime and development dataset
@@ -136,7 +136,10 @@ review; a mechanically passing generated case is a development artifact.
 Run `python -m pytest banking_v3/tests -q`. The canonical release builder
 exports explicit code/data directories, excludes evaluation seeds, private
 answers and evaluator-only historical assets, and writes a byte manifest.
-Both public repositories consume that same archive. Runtime version 2.1 and
+Both public repositories consume that same archive. Runtime version 2.1.1 and
 dataset version 3.1 intentionally distinguish software from fixture versions.
+Runtime 2.1.1 changes no code path and no case: it corrects
+`banking_v3.__version__`, which 2.1.0 shipped as "2.0.0", and adds a test
+that keeps it equal to the package version.
 
 MIT. Every generated document is marked `CLEANROOM_SYNTHETIC`.

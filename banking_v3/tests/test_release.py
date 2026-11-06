@@ -18,5 +18,13 @@ def test_public_release_allows_v3_runtime_but_not_private_data():
     assert "banking_v3/environment.py" in names
     assert "banking_v3/generate.py" in names
     assert not any("banking_v3/data/evaluation/" in name or "/evaluator/" in name for name in names)
-    assert 'version = "2.1.0"' in build.PYPROJECT
+    assert 'version = "2.1.1"' in build.PYPROJECT
     assert '"banking_v3"' in build.PYPROJECT
+
+
+def test_runtime_version_literal_matches_package_version():
+    import re
+    import banking_v3
+
+    declared = re.search(r'^version = "([^"]+)"$', build.PYPROJECT, re.M).group(1)
+    assert banking_v3.__version__ == declared

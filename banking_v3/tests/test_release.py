@@ -23,6 +23,7 @@ def test_public_release_allows_v3_runtime_but_not_private_data():
 
 
 def test_runtime_version_literal_matches_package_version():
+    """banking_v3.__version__ must equal the version the release pyproject declares."""
     import re
     import banking_v3
 

@@ -1,0 +1,131 @@
+name: Release
+
+# Run by hand (Actions > Release > Run workflow) or through the API.
+# Creates the tag on a commit that is already on main and publishes the
+# GitHub release. Release notes and assets are read from `assets_ref`, so
+# large archives never have to be merged into main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to create, e.g. v2.1.1 (must not exist yet)"
+        required: true
+        type: string
+      target:
+        description: "Full 40-character commit SHA on main to tag"
+        required: true
+        type: string
+      title:
+        description: "Release title"
+        required: true
+        type: string
+      notes:
+        description: "Release notes (markdown). Leave empty to use notes_file"
+        required: false
+        type: string
+      notes_file:
+        description: "Path of a notes file on assets_ref (used when notes is empty)"
+        required: false
+        type: string
+      assets_ref:
+        description: "Branch or commit SHA holding notes_file and assets (default: target)"
+        required: false
+        type: string
+      assets:
+        description: "Space-separated file paths on assets_ref to attach"
+        required: false
+        type: string
+      latest:
+        description: "Mark as the latest release"
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: "Mark as a pre-release"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
+      TARGET: ${{ inputs.target }}
+      TITLE: ${{ inputs.title }}
+      NOTES: ${{ inputs.notes }}
+      NOTES_FILE: ${{ inputs.notes_file }}
+      ASSETS_REF: ${{ inputs.assets_ref }}
+      ASSETS: ${{ inputs.assets }}
+      LATEST: ${{ inputs.latest }}
+      PRERELEASE: ${{ inputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]] || fail "tag must look like v1.2.3"
+          [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || fail "target must be a full 40-character commit SHA"
+          git cat-file -e "$TARGET^{commit}" 2>/dev/null || fail "target $TARGET is not in this repository"
+          git merge-base --is-ancestor "$TARGET" origin/main || fail "target $TARGET is not on main"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            fail "tag $TAG already exists"
+          fi
+          [[ -n "$NOTES" || -n "$NOTES_FILE" ]] || fail "give notes or notes_file"
+
+      - name: Collect notes and assets
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          ref="${ASSETS_REF:-$TARGET}"
+          if git rev-parse --verify --quiet "origin/$ref^{commit}" >/dev/null; then
+            src=$(git rev-parse "origin/$ref^{commit}")
+          elif git rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+            src=$(git rev-parse "$ref^{commit}")
+          else
+            fail "assets_ref $ref not found"
+          fi
+          echo "Reading notes and assets from $src"
+          mkdir -p "$RUNNER_TEMP/notes" "$RUNNER_TEMP/dist"
+          if [[ -n "$NOTES" ]]; then
+            printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes/notes.md"
+          else
+            [[ "$NOTES_FILE" =~ ^[A-Za-z0-9._/-]+$ && "$NOTES_FILE" != *..* ]] || fail "bad notes_file path"
+            git show "$src:$NOTES_FILE" > "$RUNNER_TEMP/notes/notes.md" || fail "notes_file not found on $src"
+          fi
+          for p in $ASSETS; do
+            [[ "$p" =~ ^[A-Za-z0-9._/-]+$ && "$p" != *..* ]] || fail "bad asset path: $p"
+            name=$(basename "$p")
+            [[ ! -e "$RUNNER_TEMP/dist/$name" ]] || fail "two assets are both named $name"
+            git show "$src:$p" > "$RUNNER_TEMP/dist/$name" || fail "asset $p not found on $src"
+          done
+
+      - name: Publish release
+        run: |
+          set -euo pipefail
+          args=(--target "$TARGET" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes/notes.md" --latest="$LATEST")
+          if [[ "$PRERELEASE" == "true" ]]; then args+=(--prerelease); fi
+          shopt -s nullglob
+          files=("$RUNNER_TEMP"/dist/*)
+          gh release create "$TAG" "${args[@]}" "${files[@]}"
+          {
+            echo "### Released $TAG at \`$TARGET\`"
+            if (( ${#files[@]} )); then
+              echo '```'
+              (cd "$RUNNER_TEMP/dist" && sha256sum *)
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -194,6 +194,9 @@ class SchemaConstrainedHTTPProvider:
                 },
             },
         }
+        if urlsplit(self.config.endpoint).hostname == "api.openai.com":
+            # OpenAI's current chat models reject max_tokens (unsupported_parameter); same budget, renamed. Other endpoints keep the request bytes they always had.
+            payload["max_completion_tokens"] = payload.pop("max_tokens")
         request_body = canonical_bytes(payload)
         if len(request_body) > MAX_REQUEST_BYTES:
             raise ContractError("citation provider request exceeds byte limit")

@@ -268,6 +268,7 @@ class ChatCompletionsPolicy:
         # that kills the episode on turn 1. Retries are counted in telemetry.
         retries = 0
         while True:
+            retry_after = 0.0
             try:
                 with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
                     raw = response.read(MAX_RESPONSE_BYTES + 1)
@@ -275,6 +276,11 @@ class ChatCompletionsPolicy:
             except urllib.error.HTTPError as exc:
                 raw = exc.read(MAX_RESPONSE_BYTES + 1)
                 status = exc.code
+                # Read the header here: `exc` is unbound once this block exits.
+                try:
+                    retry_after = float(exc.headers.get("Retry-After", 0) or 0)
+                except (ValueError, TypeError, AttributeError):
+                    retry_after = 0.0
             except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:
                 # Transport failure (reset, timeout, truncated chunked body):
                 # retry like a 5xx, then surface as one policy error; never
@@ -286,11 +292,6 @@ class ChatCompletionsPolicy:
                 continue
             if status not in (429, 500, 502, 503, 504) or retries >= self.config.max_retries:
                 break
-            retry_after = 0.0
-            try:
-                retry_after = float(exc.headers.get("Retry-After", 0)) if isinstance(exc, urllib.error.HTTPError) else 0.0
-            except (ValueError, TypeError):
-                retry_after = 0.0
             time.sleep(max(retry_after, min(60.0, 2.0 * (2 ** retries))))
             retries += 1
         if retries:

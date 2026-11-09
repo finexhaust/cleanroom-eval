@@ -42,8 +42,10 @@ class HTTPPolicy:
         for row in history:
             messages.extend([{"role": "assistant", "content": canonical(row["request"]).decode()},
                              {"role": "user", "content": canonical(row["response"]).decode()}])
+        # OpenAI's current chat models reject max_tokens (unsupported_parameter); same budget, renamed. Other endpoints keep the request bytes they always had.
+        limit = "max_completion_tokens" if urlparse(self.endpoint).hostname == "api.openai.com" else "max_tokens"
         body = canonical({"model": self.model, "messages": messages, "temperature": 0,
-                          "max_tokens": 2048, "response_format": {"type": "json_object"}})
+                          limit: 2048, "response_format": {"type": "json_object"}})
         request = urllib.request.Request(self.endpoint + "/chat/completions", data=body, headers={
             "Authorization": "Bearer " + self._key, "Content-Type": "application/json"})
         raw, status = b"", 0

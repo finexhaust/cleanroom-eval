@@ -512,6 +512,11 @@ def terminal_state(gates: dict) -> str:
         return "RUNTIME_NOT_REPRODUCIBLE"
     if gates["clean_machine_tutorial"]["status"] != "PASS":
         return "RUNTIME_NOT_REPRODUCIBLE"
+    failed = sorted(name for name, gate in gates.items() if gate["status"] == "FAIL")
+    if failed:
+        # Gates without a dedicated state above (path metadata, manifest
+        # verification, caller-added gates) must not fall through to a PASS.
+        return "RELEASE_AUDIT_FAIL"
     if any(g["status"] != "PASS" or g.get("limitation") for g in gates.values()):
         return "RELEASE_AUDIT_PASS_WITH_LIMITATIONS"
     return "RELEASE_AUDIT_PASS"
@@ -552,6 +557,8 @@ def main() -> None:
     summary = {name: g["status"] for name, g in gates.items()}
     print(json.dumps({"archive": str(archive), "gates": summary,
                       "terminal_state": report["terminal_state"]}, indent=2))
+    if any(status == "FAIL" for status in summary.values()):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

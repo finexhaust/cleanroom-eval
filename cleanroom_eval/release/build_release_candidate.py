@@ -68,6 +68,8 @@ DENY_NAME_PATTERNS = (
     # S1 private-set minting recipe: the SKU differentiator, never shipped.
     re.compile(r"private_sets\.py$"),
     re.compile(r"mint_private_set\.py$"),
+    # Private run analysis bound to a local output path; not part of the runtime.
+    re.compile(r"passk_aggregate\.py$"),
     # ISDA curve replay handoff (#217): binds a real institution's private
     # gold set by artifact id, so it breaks the CLEANROOM_SYNTHETIC boundary.
     re.compile(r"(^|/)isda_replay/"),
@@ -103,19 +105,22 @@ explicit allowlist, never from the source repository's history.
 - Report issues to the repository owner; do not open public issues that
   quote unpublished material.
 """
-RUNTIME_REQUIREMENTS = "cryptography==46.0.5\njsonschema==4.26.0\nprefect==3.6.20\nhttpx==0.28.1\npython-dotenv==1.2.1\n"
+RUNTIME_REQUIREMENTS = "cryptography==46.0.5\njsonschema==4.26.0\nprefect==3.6.20\n"
 PYPROJECT = """[build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cleanroom-eval"
-version = "2.1.1"
+version = "2.1.2"
 description = "Clean-room capital-markets agent evaluation: sealed synthetic episodes, task contracts, reward-hacking gates, hash-bound evidence"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
-dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.20", "httpx>=0.27", "python-dotenv>=1.0"]
+dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.20"]
+
+[project.optional-dependencies]
+panel = ["httpx>=0.27", "python-dotenv>=1.0"]
 
 [tool.setuptools]
 packages = ["cleanroom_eval", "cleanroom_eval.evidence", "cleanroom_eval.release", "cleanroom_corpus", "banking_v3"]
@@ -137,7 +142,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -e . pytest==9.0.2
+      - run: pip install -e '.[panel]' pytest==9.0.2
       - run: python -m pytest banking_v3/tests -q
 """
 

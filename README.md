@@ -1,4 +1,4 @@
-# BankingEnv / cleanroom-eval 2.1.1
+# BankingEnv / cleanroom-eval 2.1.2
 
 Document-grounded synthetic banking operations, dataset v3.1.
 The two public repositories now ship the same runtime and development dataset
@@ -14,7 +14,8 @@ records from approved independent issuers; deduplicate by event_id", matching
 what the evaluator has always scored. The 20 October smoke audit had found the
 earlier wording ambiguous (unique proof records in the prose, unique issuers in
 the evaluator) and quarantined the affected cases from difficulty claims. In
-3.1, 168 of the 192 development cases are byte-identical to 3.0; the 24
+3.1, 168 of the 192 development cases differ from 3.0 only in
+`provenance.generator_version`; the 24
 evidence cases carry the clarified policy documents and new document hashes.
 Every case's provenance records generator_version 3.1. The private evaluation
 split is regenerated with a fresh seed and stays private. Runtime 2.1 also
@@ -136,10 +137,12 @@ review; a mechanically passing generated case is a development artifact.
 Run `python -m pytest banking_v3/tests -q`. The canonical release builder
 exports explicit code/data directories, excludes evaluation seeds, private
 answers and evaluator-only historical assets, and writes a byte manifest.
-Both public repositories consume that same archive. Runtime version 2.1.1 and
+Both public repositories consume that same archive. Runtime version 2.1.2 and
 dataset version 3.1 intentionally distinguish software from fixture versions.
-Runtime 2.1.1 changes no code path and no case: it corrects
-`banking_v3.__version__`, which 2.1.0 shipped as "2.0.0", and adds a test
-that keeps it equal to the package version.
+Runtime 2.1.2 changes one code path and no case: the model-panel runner sends
+`max_completion_tokens` instead of `max_tokens` to the OpenAI provider, because
+gpt-5.x reasoning models reject `max_tokens`. `httpx` and `python-dotenv` move
+to the optional `panel` extra (`pip install -e '.[panel]'`), so a base install
+no longer requires them. The dataset stays 3.1.
 
 MIT. Every generated document is marked `CLEANROOM_SYNTHETIC`.

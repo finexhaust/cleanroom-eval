@@ -57,6 +57,9 @@ def payload_for(model, messages, remaining, per_turn):
             'reasoning_effort': model['reasoning_effort']}
     if model['provider'] == 'deepseek':
         body['thinking'] = {'type': 'enabled'}
+    if model['provider'] == 'openai':
+        # gpt-5.x reasoning models reject max_tokens (unsupported_parameter); same budget, renamed.
+        body['max_completion_tokens'] = body.pop('max_tokens')
     return body
 
 

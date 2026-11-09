@@ -1,0 +1,122 @@
+{
+  "schema": "cleanroom.release-audit/v1",
+  "archive": "cleanroom-eval-release.tar.gz",
+  "archive_sha256": "0e3363f05de5f6fbd1d929f583c059eb78df723174bf9166127699d8b8f9f71c",
+  "file_count": 429,
+  "archive_bytes": 679804,
+  "gates": {
+    "secret_scan": {
+      "status": "PASS",
+      "hits": []
+    },
+    "internal_identifier_scan": {
+      "status": "PASS",
+      "hits": []
+    },
+    "registry_identity_scan": {
+      "status": "PASS",
+      "members_scanned": 427,
+      "members_skipped_binary": 0,
+      "hits_total": 0,
+      "files_with_hits": {},
+      "findings": [],
+      "registry": "knowledge-graph/profiles/corpus-1-2-3-4-5/entity_registry.jsonl",
+      "registry_rows_total": 2911,
+      "registry_rows_core_typed": 721,
+      "core_types": [
+        "account",
+        "email",
+        "organization",
+        "person",
+        "server",
+        "system",
+        "team",
+        "ticket",
+        "venue"
+      ],
+      "record_source_count": 4,
+      "record_sources_sha256": "486a432c290e4524",
+      "lexicon_version": "canonical-lexicon.v2",
+      "needles_hunted": 799,
+      "match_modes": [
+        "exact",
+        "sequence",
+        "numeric",
+        "pattern"
+      ],
+      "min_surface_chars": 5
+    },
+    "source_shingle_overlap": {
+      "status": "PASS",
+      "corpora_scanned": 5,
+      "shingle_width_words": 10,
+      "overlaps": []
+    },
+    "private_gold_leak": {
+      "status": "PASS",
+      "leaks": []
+    },
+    "path_metadata_scan": {
+      "status": "PASS",
+      "problems": []
+    },
+    "license_inventory": {
+      "status": "PASS",
+      "license_present": true,
+      "declared_dependencies": [
+        "cryptography==46.0.5",
+        "iniconfig==2.3.0",
+        "jsonschema==4.26.0",
+        "numpy==2.4.2",
+        "packaging==25.0",
+        "pluggy==1.6.0",
+        "pyarrow==23.0.1",
+        "python-dotenv==1.2.1",
+        "PyYAML==6.0.1",
+        "Pygments==2.17.2",
+        "pytest==9.0.2",
+        "tokenizers==0.22.2",
+        "striprtf==0.0.29",
+        "websockets==16.0"
+      ],
+      "note": null
+    },
+    "deterministic_rebuild": {
+      "status": "PASS",
+      "archive_sha256": "0e3363f05de5f6fbd1d929f583c059eb78df723174bf9166127699d8b8f9f71c",
+      "rebuild_sha256": "0e3363f05de5f6fbd1d929f583c059eb78df723174bf9166127699d8b8f9f71c"
+    },
+    "manifest_verification": {
+      "status": "PASS",
+      "mismatches": []
+    },
+    "import_smoke": {
+      "status": "PASS",
+      "detail": null
+    },
+    "clean_machine_tutorial": {
+      "status": "PASS",
+      "environment": "isolated-venv",
+      "steps": [
+        {
+          "step": "-m cleanroom_eval.contract verify-bundle",
+          "returncode": 0
+        },
+        {
+          "step": "-m cleanroom_eval.contract verify-set",
+          "returncode": 0
+        },
+        {
+          "step": "-m cleanroom_eval.fire_gates preregister --out runs",
+          "returncode": 0
+        },
+        {
+          "step": "-m cleanroom_eval.fire_gates baseline --out runs",
+          "returncode": 0
+        }
+      ],
+      "limitation": "replayed in a fresh venv on the build machine; separate-machine replay not performed"
+    }
+  },
+  "terminal_state": "RELEASE_AUDIT_PASS_WITH_LIMITATIONS"
+}

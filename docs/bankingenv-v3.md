@@ -1,9 +1,10 @@
-# BankingEnv / cleanroom-eval 2.1.2
+# BankingEnv / cleanroom-eval 2.1.3
 
 Document-grounded synthetic banking operations, dataset v3.1.
-The two public repositories now ship the same runtime and development dataset
-from one allowlisted build. The historical 40-case fixtures remain available
-for reproduction; they are no longer the current benchmark.
+BankingEnv is published from this one public repository, from one allowlisted
+build. The former `bankingenv` repository is archived; its last release, 2.1.2,
+is the same artifact as cleanroom-eval 2.1.2. The historical 40-case fixtures
+remain available for reproduction; they are no longer the current benchmark.
 
 ## Dataset 3.1, what changed from 3.0
 
@@ -137,12 +138,15 @@ review; a mechanically passing generated case is a development artifact.
 Run `python -m pytest banking_v3/tests -q`. The canonical release builder
 exports explicit code/data directories, excludes evaluation seeds, private
 answers and evaluator-only historical assets, and writes a byte manifest.
-Both public repositories consume that same archive. Runtime version 2.1.2 and
-dataset version 3.1 intentionally distinguish software from fixture versions.
-Runtime 2.1.2 changes one code path and no case: the model-panel runner sends
-`max_completion_tokens` instead of `max_tokens` to the OpenAI provider, because
-gpt-5.x reasoning models reject `max_tokens`. `httpx` and `python-dotenv` move
-to the optional `panel` extra (`pip install -e '.[panel]'`), so a base install
-no longer requires them. The dataset stays 3.1.
+This repository publishes that archive. Runtime version 2.1.3 and dataset
+version 3.1 intentionally distinguish software from fixture versions.
+
+Runtime 2.1.3 changes no code path and no case: it updates this README now
+that cleanroom-eval is the only public repository. Runtime 2.1.2 changed one
+code path and no case: the model-panel runner sends `max_completion_tokens`
+instead of `max_tokens` to the OpenAI provider, because gpt-5.x reasoning
+models reject `max_tokens`, and `httpx` and `python-dotenv` moved to the
+optional `panel` extra (`pip install -e '.[panel]'`), so a base install no
+longer requires them. The dataset stays 3.1.
 
 MIT. Every generated document is marked `CLEANROOM_SYNTHETIC`.

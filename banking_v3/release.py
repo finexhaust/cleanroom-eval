@@ -1,4 +1,4 @@
-"""One allowlisted, audited release tree for both public distributions."""
+"""One allowlisted, audited release tree for the public cleanroom-eval distribution."""
 from __future__ import annotations
 
 from pathlib import Path

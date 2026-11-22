@@ -8,6 +8,7 @@
     "set_id",
     "classification",
     "status",
+    "limitations",
     "assets",
     "asset_count",
     "asset_list_sha256"
@@ -17,6 +18,10 @@
     "set_id": {"pattern": "^cmo_cleanroom_sealed_v[0-9]+$"},
     "classification": {"const": "CLEANROOM_SYNTHETIC"},
     "status": {"const": "FROZEN"},
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
     "assets": {
       "type": "array",
       "minItems": 6,
@@ -35,4 +40,3 @@
     "asset_list_sha256": {"pattern": "^[0-9a-f]{64}$"}
   }
 }
-

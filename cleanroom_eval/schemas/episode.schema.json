@@ -40,6 +40,9 @@
     "classification": {
       "const": "CLEANROOM_SYNTHETIC"
     },
+    "calendar_id": {
+      "enum": ["WEEKDAY_ONLY"]
+    },
     "world_id": {
       "pattern": "^world_eval_[a-z0-9_]+$"
     },

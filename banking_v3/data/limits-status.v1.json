@@ -1,0 +1,10 @@
+{
+  "schema": "bankingenv.limits-status/v1",
+  "limits": [
+    {"id": "independent_review", "status": "NOT_RUN"},
+    {"id": "model_difficulty", "status": "NOT_MEASURED"},
+    {"id": "human_certification", "status": "NOT_ISSUED"},
+    {"id": "standard_harness", "status": "NOT_MET"}
+  ],
+  "linked_artifacts": []
+}

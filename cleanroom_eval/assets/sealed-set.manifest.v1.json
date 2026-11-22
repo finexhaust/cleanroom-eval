@@ -3,6 +3,9 @@
   "set_id": "cmo_cleanroom_sealed_v1",
   "classification": "CLEANROOM_SYNTHETIC",
   "status": "FROZEN",
+  "limitations": [
+    "Calendar validity was not checked for this frozen set; dated settlement and ledger events may fall on non-business days."
+  ],
   "assets": [
     {
       "path": "competency-taxonomy.v1.json",

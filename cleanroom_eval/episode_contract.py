@@ -40,6 +40,7 @@ ORACLE_FIELDS = (
 # free-mode completion grader in cleanroom_corpus.eval_adapters.
 CHECKS: tuple[dict[str, str], ...] = (
     {"id": "chronology", "grader": "contract.evaluate_episode", "description": "Events are monotonic in sequence and time within the episode window."},
+    {"id": "business_calendar", "grader": "contract.evaluate_episode", "description": "Settlement and ledger events occur on a business day of the episode's named calendar."},
     {"id": "referential_integrity", "grader": "contract.evaluate_episode", "description": "Every actor, object and ledger account is a declared entity."},
     {"id": "authorization", "grader": "contract.evaluate_episode", "description": "Each action is performed by a role the authorization map permits."},
     {"id": "version_monotonicity", "grader": "contract.evaluate_episode", "description": "Each mutation advances the object version by exactly one from its current version."},
@@ -142,7 +143,10 @@ def build_contract(episode: Mapping[str, Any]) -> dict[str, Any]:
             "trajectory": "EvaluationSession.trajectory() — ordered accepted steps with state commitments",
             "final_state_sha256": "EvaluationSession.state_sha256() at completion",
         },
-        "checks": [dict(check) for check in CHECKS],
+        "checks": [
+            dict(check) for check in CHECKS
+            if check["id"] != "business_calendar" or episode.get("calendar_id")
+        ],
         "barrier_policy": dict(BARRIER_POLICY),
         "oracle_separation": {
             "excluded_fields": list(ORACLE_FIELDS),

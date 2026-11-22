@@ -1,0 +1,13 @@
+{
+  "schema": "cleanroom.coverage-grid-surfaces/v1",
+  "families": [
+    {"family": "lifecycle", "mapping_status": "UNBOUND", "touchpoints": []},
+    {"family": "booking_allocations", "mapping_status": "UNBOUND", "touchpoints": []},
+    {"family": "reconciliation", "mapping_status": "UNBOUND", "touchpoints": []},
+    {"family": "collateral_margin", "mapping_status": "UNBOUND", "touchpoints": []},
+    {"family": "settlement_exceptions", "mapping_status": "UNBOUND", "touchpoints": []},
+    {"family": "permissions_release", "mapping_status": "UNBOUND", "touchpoints": []},
+    {"family": "temporal_causality", "mapping_status": "UNBOUND", "touchpoints": []},
+    {"family": "evidence_sufficiency", "mapping_status": "UNBOUND", "touchpoints": []}
+  ]
+}

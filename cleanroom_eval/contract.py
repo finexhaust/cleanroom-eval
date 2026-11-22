@@ -246,6 +246,15 @@ def evaluate_episode(
     for event in events:
         at = _parse_time(event["at"])
         if (
+            episode.get("calendar_id") == "WEEKDAY_ONLY"
+            and (event.get("ledger_entries") or "settle" in event["action"])
+            and at.weekday() >= 5
+        ):
+            raise ContractError(
+                f"non-business-day ledger or settlement event at "
+                f"{episode['episode_id']}/{event['event_id']}"
+            )
+        if (
             event["sequence"] != previous_sequence + 1
             or at < previous_at
             or at < start
@@ -331,6 +340,8 @@ def evaluate_episode(
             "evidence_presence",
         )
     )
+    if episode.get("calendar_id"):
+        checks.append("business_calendar")
     if states != final_expected:
         raise ContractError(
             f"replayed final state differs for {episode['episode_id']}: "
@@ -485,27 +496,46 @@ def verify_experiment_run(
         raise ContractError("contamination gate failed")
 
 
+def _resolve_release_asset_path(root: Path, relative: str) -> Path:
+    candidate = root / relative
+    current = root
+    for part in Path(relative).parts:
+        current = current / part
+        if current.is_symlink():
+            raise ContractError(f"release asset is symlinked: {relative}")
+    path = candidate.resolve()
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise ContractError(f"asset escapes release root: {relative}") from exc
+    return path
+
+
 def build_release_manifest(
     *,
     root: Path,
     relative_paths: Sequence[str],
     release_id: str,
     repository_commit: str,
+    release_tag: str | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic, path-safe hash enumeration of release assets."""
 
     if not re.fullmatch(r"[0-9a-f]{40}", repository_commit):
         raise ContractError("repository_commit must be a full SHA-1 revision")
+    if release_tag is None:
+        match = re.fullmatch(r"cleanroom-(v[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.]+)?)", release_id)
+        release_tag = match.group(1) if match else "unreleased"
+    if release_tag != "unreleased" and not re.fullmatch(
+        r"v[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.]+)?", release_tag
+    ):
+        raise ContractError("release_tag must be unreleased or a semantic version tag")
     assets: list[dict[str, Any]] = []
     root = root.resolve()
     for relative in sorted(set(relative_paths)):
-        path = (root / relative).resolve()
-        try:
-            path.relative_to(root)
-        except ValueError as exc:
-            raise ContractError(f"asset escapes release root: {relative}") from exc
-        if not path.is_file() or path.is_symlink():
-            raise ContractError(f"release asset is missing or symlinked: {relative}")
+        path = _resolve_release_asset_path(root, relative)
+        if not path.is_file():
+            raise ContractError(f"release asset is missing: {relative}")
         assets.append(
             {
                 "path": relative,
@@ -517,6 +547,7 @@ def build_release_manifest(
         "schema": "cleanroom.release-manifest/v1",
         "release_id": release_id,
         "classification": CLASSIFICATION,
+        "release_tag": release_tag,
         "repository_commit": repository_commit,
         "assets": assets,
         "asset_count": len(assets),
@@ -530,6 +561,11 @@ def verify_release_manifest(manifest: Mapping[str, Any], *, root: Path) -> None:
     validate_schema(manifest, "release-manifest.schema.json")
     if manifest["classification"] != CLASSIFICATION:
         raise ContractError("release manifest is not clean-room synthetic")
+    if (
+        manifest["release_tag"] != "unreleased"
+        and manifest["release_id"] != f"cleanroom-{manifest['release_tag']}"
+    ):
+        raise ContractError("release manifest id differs from its tag")
     unsigned = {key: value for key, value in manifest.items() if key != "manifest_payload_sha256"}
     if manifest["manifest_payload_sha256"] != digest(unsigned):
         raise ContractError("release manifest payload digest differs")
@@ -540,14 +576,9 @@ def verify_release_manifest(manifest: Mapping[str, Any], *, root: Path) -> None:
     _unique((item["path"] for item in manifest["assets"]), "release asset paths")
     root = root.resolve()
     for asset in manifest["assets"]:
-        path = (root / asset["path"]).resolve()
-        try:
-            path.relative_to(root)
-        except ValueError as exc:
-            raise ContractError(f"release asset escapes root: {asset['path']}") from exc
+        path = _resolve_release_asset_path(root, asset["path"])
         if (
             not path.is_file()
-            or path.is_symlink()
             or path.stat().st_size != asset["bytes"]
             or file_sha256(path) != asset["sha256"]
         ):
@@ -558,6 +589,13 @@ def verify_sealed_set_manifest(manifest: Mapping[str, Any], *, root: Path) -> No
     """Rehash the public preregistered fixture set against its frozen manifest."""
 
     validate_schema(manifest, "sealed-set.schema.json")
+    if (
+        manifest["set_id"] in {"cmo_cleanroom_sealed_v1", "cmo_cleanroom_sealed_v2"}
+        and manifest["status"] == "FROZEN"
+        and "Calendar validity was not checked for this frozen set; dated settlement and ledger events may fall on non-business days."
+        not in manifest["limitations"]
+    ):
+        raise ContractError("frozen sealed-set calendar limitation is missing")
     _unique((item["path"] for item in manifest["assets"]), "sealed asset paths")
     lines: list[str] = []
     for asset in sorted(manifest["assets"], key=lambda item: item["path"]):
@@ -581,6 +619,54 @@ def verify_sealed_set_manifest(manifest: Mapping[str, Any], *, root: Path) -> No
         raise ContractError("sealed asset count differs")
     if manifest["asset_list_sha256"] != combined:
         raise ContractError("sealed asset-list commitment differs")
+
+
+def verify_coverage_grid_binding(root: Path = ASSET_DIR) -> dict[str, Any]:
+    pin = load_json(root / "coverage-grid-pin.v1.json")
+    bindings = load_json(root / "coverage-grid-surfaces.v1.json")
+    grid = pin.get("grid", {})
+    if (
+        pin.get("schema") != "cleanroom.coverage-grid-pin/v1"
+        or grid.get("repository") != "finexhaust/bankingops-coverage-grid"
+        or grid.get("tag") != "v0.8.5"
+        or grid.get("commit") != "e68c114d7b4f254af4fb285c19b46e8d641d75ab"
+        or grid.get("manifest_sha256") != "0f6d16dfebdb76f79a796103733ed8c4e044caf3d31a1d26c5a5452e20e5e17d"
+        or grid.get("manifest_asset_sha256") != "16089277af2215adf6f87313fb37350858d0c75f348c15b72148eabedcd77aff"
+    ):
+        raise ContractError("coverage-grid release pin is invalid")
+    companion = pin.get("companion", {})
+    if (
+        companion.get("version") != "2.1.3"
+        or companion.get("commit") != "3e27d5909e782d530d67f9bcdfa4e1a55891629d"
+        or companion.get("archive_sha256") != "02184bb6fb3227f890488e16865aa6d994b0025583f613093d67363651a427d5"
+        or companion.get("audit_terminal_state") != "RELEASE_AUDIT_NOT_RUN"
+        or set(companion.get("audit_not_run_gates", []))
+        != {"registry_identity_scan", "source_shingle_overlap", "v3_private_instances"}
+    ):
+        raise ContractError("pinned companion release audit outcome is invalid")
+    from .build_sealed_episodes import FAMILIES
+
+    expected = {family["id"] for family in FAMILIES}
+    rows = bindings.get("families", [])
+    observed = [row.get("family") for row in rows]
+    _unique(observed, "coverage-grid family records")
+    if (
+        bindings.get("schema") != "cleanroom.coverage-grid-surfaces/v1"
+        or set(observed) != expected
+    ):
+        raise ContractError("coverage-grid records do not cover every task family")
+    for row in rows:
+        if row.get("mapping_status") != "UNBOUND" or row.get("touchpoints") != []:
+            raise ContractError(
+                f"unreviewed coverage-grid binding is not explicitly unbound: {row.get('family')}"
+            )
+    return {
+        "status": "PASS",
+        "tag": grid["tag"],
+        "manifest_sha256": grid["manifest_sha256"],
+        "families": len(rows),
+        "unbound": len(rows),
+    }
 
 
 def verify_attestation(
@@ -650,6 +736,7 @@ def verify_bundle(root: Path = ASSET_DIR) -> dict[str, Any]:
     preregistration = load_json(root / "preregistration.v1.json")
     partitions = load_json(root / "scenario-partitions.v1.json")
     verify_sealed_set_manifest(sealed_set, root=root)
+    grid_binding = verify_coverage_grid_binding(root)
     verify_taxonomy(taxonomy)
     validate_schema(preregistration, "preregistration.schema.json")
     if preregistration["episode_set_id"] != sealed_set["set_id"]:
@@ -693,6 +780,8 @@ def verify_bundle(root: Path = ASSET_DIR) -> dict[str, Any]:
     return {
         "schema": "cleanroom.bundle-verification/v1",
         "status": "PASS",
+        "coverage_grid": grid_binding,
+        "limitations": sealed_set["limitations"],
         "taxonomy_version": taxonomy["version"],
         "experiment_id": experiment["experiment_id"],
         "sealed_set_sha256": file_sha256(root / "sealed-set.manifest.v1.json"),
@@ -759,6 +848,7 @@ def verify_episode_set(
     partitions = load_json(root / "scenario-partitions.v1.json")
     manifest = load_json(root / manifest_name)
     verify_sealed_set_manifest(manifest, root=root)
+    grid_binding = verify_coverage_grid_binding(root)
     verify_taxonomy(taxonomy)
     competency_ids = {item["id"] for item in taxonomy["competencies"]}
     surface_ids = {item["id"] for item in taxonomy["tool_surfaces"]}
@@ -774,6 +864,11 @@ def verify_episode_set(
         if path.relative_to(root).as_posix() not in manifest_paths:
             raise ContractError(f"episode is not enumerated by the manifest: {path.name}")
     episodes = [load_json(path) for path in episode_paths]
+    legacy_set_ids = {"cmo_cleanroom_sealed_v1", "cmo_cleanroom_sealed_v2"}
+    if manifest["set_id"] not in legacy_set_ids and any(
+        not episode.get("calendar_id") for episode in episodes
+    ):
+        raise ContractError("new sealed episodes must name a business calendar")
     verify_scenario_partitions(partitions, episodes=episodes)
     _unique((item["episode_id"] for item in episodes), "episode ids")
     results = [
@@ -787,7 +882,9 @@ def verify_episode_set(
         "schema": "cleanroom.episode-set-verification/v1",
         "contracts": contracts,
         "status": "PASS",
+        "coverage_grid": grid_binding,
         "set_id": manifest["set_id"],
+        "limitations": manifest["limitations"],
         "sealed_set_sha256": file_sha256(root / manifest_name),
         "episode_count": len(results),
         "variation": set_variation(episodes),

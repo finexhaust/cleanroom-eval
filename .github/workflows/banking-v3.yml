@@ -12,3 +12,19 @@ jobs:
           python-version: '3.12'
       - run: pip install -e '.[panel]' pytest==9.0.2
       - run: python -m pytest banking_v3/tests -q
+      - run: python -m cleanroom_eval.contract verify-bundle
+      - run: python -m cleanroom_eval.contract verify-set
+      - run: |
+          python - <<'PY'
+          from banking_v3.contract import load_package
+          load_package("banking_v3/data/development")
+          PY
+      - run: sha256sum -c RELEASE-MANIFEST.sha256
+      - run: |
+          python - <<'PY'
+          from banking_v3.contract import load_json
+          from banking_v3.flow import code_commitment
+          receipt = load_json("banking_v3/data/regeneration-receipt.json")
+          if receipt["code_sha256"] != code_commitment():
+              raise SystemExit("regeneration receipt does not bind to shipped BankingEnv code")
+          PY

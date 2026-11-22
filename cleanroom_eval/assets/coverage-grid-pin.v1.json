@@ -1,0 +1,22 @@
+{
+  "schema": "cleanroom.coverage-grid-pin/v1",
+  "grid": {
+    "repository": "finexhaust/bankingops-coverage-grid",
+    "tag": "v0.8.5",
+    "commit": "e68c114d7b4f254af4fb285c19b46e8d641d75ab",
+    "manifest_path": "release-assets/v0.8.5/bocg-release-manifest.json",
+    "manifest_sha256": "0f6d16dfebdb76f79a796103733ed8c4e044caf3d31a1d26c5a5452e20e5e17d",
+    "manifest_asset_sha256": "16089277af2215adf6f87313fb37350858d0c75f348c15b72148eabedcd77aff"
+  },
+  "companion": {
+    "version": "2.1.3",
+    "commit": "3e27d5909e782d530d67f9bcdfa4e1a55891629d",
+    "archive_sha256": "02184bb6fb3227f890488e16865aa6d994b0025583f613093d67363651a427d5",
+    "audit_terminal_state": "RELEASE_AUDIT_NOT_RUN",
+    "audit_not_run_gates": [
+      "registry_identity_scan",
+      "source_shingle_overlap",
+      "v3_private_instances"
+    ]
+  }
+}

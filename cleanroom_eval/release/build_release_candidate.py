@@ -53,6 +53,7 @@ ALLOW_FILES = (
     "docs/bankingenv-v3.md",
     "docs/bankingenv-v3-model-panel.md",
     "banking_v3/data/regeneration-receipt.json",
+    "banking_v3/data/limits-status.v1.json",
     "docs/technical-note-strategy-locking.md",
     "cleanroom_eval/evidence/__init__.py",
     "cleanroom_eval/release/__init__.py",
@@ -129,22 +130,10 @@ packages = ["cleanroom_eval", "cleanroom_eval.evidence", "cleanroom_eval.release
 cleanroom_eval = ["assets/**/*", "schemas/*", "mock_training/*", "README.md"]
 banking_v3 = ["data/development/**/*.json", "data/*.json"]
 """
-ROOT_README = (REPO_ROOT / "docs/bankingenv-v3.md").read_text(encoding="utf-8")
-PUBLIC_CI = """name: BankingEnv contracts
-on: [pull_request, push]
-permissions:
-  contents: read
-jobs:
-  contracts:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -e '.[panel]' pytest==9.0.2
-      - run: python -m pytest banking_v3/tests -q
-"""
+PYPROJECT = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+ROOT_README_PATH = REPO_ROOT / "docs/bankingenv-v3.md"
+ROOT_README = (ROOT_README_PATH if ROOT_README_PATH.is_file() else REPO_ROOT / "README.md").read_text(encoding="utf-8")
+PUBLIC_CI = (REPO_ROOT / ".github/workflows/banking-v3.yml").read_text(encoding="utf-8")
 
 
 
@@ -293,9 +282,7 @@ def gate_registry_identity_scan(members) -> dict:
     try:
         from cleanroom_eval.release import registry_identity
     except ImportError as exc:
-        # Expected when the audit is re-run from the published archive, which
-        # does not carry the private module. Never a silent pass.
-        return {"status": "NOT_RUN", "reason": f"private needle module absent: {exc!r}"}
+        return {"status": "NOT_RUN", "reason": "private identity verifier unavailable"}
     return registry_identity.scan_members(members)
 
 
@@ -409,6 +396,61 @@ def gate_manifest_verification(members) -> dict:
     return {"status": "PASS" if not mismatches else "FAIL", "mismatches": mismatches}
 
 
+def gate_result_limits(members) -> dict:
+    by_name = {info.name: blob for info, blob in members}
+    path = "banking_v3/data/limits-status.v1.json"
+    try:
+        matrix = json.loads(by_name[path])
+        rows = matrix["limits"]
+        statuses = {row["id"]: row["status"] for row in rows}
+        expected = {
+            "independent_review": "NOT_RUN",
+            "model_difficulty": "NOT_MEASURED",
+            "human_certification": "NOT_ISSUED",
+            "standard_harness": "NOT_MET",
+        }
+        artifacts = matrix["linked_artifacts"]
+        if (
+            matrix["schema"] != "bankingenv.limits-status/v1"
+            or statuses != expected
+            or len(rows) != len(expected)
+        ):
+            raise ValueError("limit status rows are missing or overstate evidence")
+        for artifact in artifacts:
+            name = artifact["path"]
+            if (
+                Path(name).is_absolute()
+                or ".." in Path(name).parts
+                or name not in by_name
+                or hashlib.sha256(by_name[name]).hexdigest() != artifact["sha256"]
+            ):
+                raise ValueError("linked result artifact is missing or has a different digest")
+        return {"status": "PASS", "limits_checked": len(expected), "artifacts_checked": len(artifacts)}
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return {"status": "FAIL", "reason": str(exc)}
+
+
+def gate_release_metadata_scan(report: dict, members) -> dict:
+    audit = json.dumps(report, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    audit_info = tarfile.TarInfo("release-audit.json")
+    generated = [(audit_info, audit)]
+    evidence = [
+        (info, blob) for info, blob in members
+        if info.name.startswith("cleanroom_eval/evidence/")
+    ]
+    scanned = [*generated, *evidence]
+    results = {
+        "secret_scan": gate_secret_scan(scanned),
+        "internal_identifier_scan": gate_internal_identifier_scan(scanned),
+        "path_metadata_scan": gate_path_metadata_scan(scanned),
+    }
+    return {
+        "status": "PASS" if all(item["status"] == "PASS" for item in results.values()) else "FAIL",
+        "files_scanned": len(scanned),
+        "scans": results,
+    }
+
+
 def gate_import_smoke(archive_path: Path) -> dict:
     with tempfile.TemporaryDirectory() as scratch:
         with tarfile.open(archive_path, mode="r:gz") as tar:
@@ -517,6 +559,10 @@ def terminal_state(gates: dict) -> str:
         # Gates without a dedicated state above (path metadata, manifest
         # verification, caller-added gates) must not fall through to a PASS.
         return "RELEASE_AUDIT_FAIL"
+    if any(g["status"] == "NOT_RUN" for g in gates.values()):
+        return "RELEASE_AUDIT_NOT_RUN"
+    if any(g["status"] not in ("PASS", "NOT_RUN") for g in gates.values()):
+        return "RELEASE_AUDIT_FAIL"
     if any(g["status"] != "PASS" or g.get("limitation") for g in gates.values()):
         return "RELEASE_AUDIT_PASS_WITH_LIMITATIONS"
     return "RELEASE_AUDIT_PASS"
@@ -526,11 +572,39 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default=str(Path.home() / ".local/share/finexhaust/cleanroom-release"))
     parser.add_argument("--corpora", default=str(Path.home() / ".local/share/finexhaust/corpora"))
+    parser.add_argument("--tag", default="unreleased")
+    parser.add_argument("--commit")
     args = parser.parse_args()
     out_dir = Path(args.out)
+    if args.tag != "unreleased" and not re.fullmatch(
+        r"v[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.]+)?", args.tag
+    ):
+        parser.error("--tag must be unreleased or a semantic version tag")
 
     archive = build_archive(out_dir)
     members = _archive_members(archive)
+    commit = args.commit
+    if commit is None:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
+            text=True, check=True,
+        ).stdout.strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        parser.error("--commit must be a full 40-character commit SHA")
+    with tempfile.TemporaryDirectory() as scratch:
+        with tarfile.open(archive, mode="r:gz") as tar:
+            tar.extractall(scratch, filter="data")
+        from cleanroom_eval.contract import build_release_manifest, write_json
+
+        payloads = [info.name for info, _ in members if info.name != "RELEASE-MANIFEST.sha256"]
+        release_manifest = build_release_manifest(
+            root=Path(scratch),
+            relative_paths=payloads,
+            release_id=f"cleanroom-{args.tag}",
+            repository_commit=commit,
+            release_tag=args.tag,
+        )
+        write_json(out_dir / "release-manifest.json", release_manifest)
     gates = {
         "secret_scan": gate_secret_scan(members),
         "internal_identifier_scan": gate_internal_identifier_scan(members),
@@ -541,23 +615,56 @@ def main() -> None:
         "license_inventory": gate_license_inventory(members),
         "deterministic_rebuild": gate_deterministic_rebuild(archive),
         "manifest_verification": gate_manifest_verification(members),
+        "result_limits": gate_result_limits(members),
         "import_smoke": gate_import_smoke(archive),
         "clean_machine_tutorial": gate_tutorial_replay(archive),
     }
+    try:
+        from banking_v3.contract import load_package
+        from banking_v3.evaluate import reference_rollout
+
+        _, cases = load_package(REPO_ROOT / "banking_v3/data/development")
+        passed = sum(reference_rollout(case)[0]["complete"] for case in cases)
+        gates["v3_development_replay"] = {
+            "status": "PASS" if passed == len(cases) else "FAIL",
+            "cases": len(cases),
+            "complete": passed,
+        }
+    except Exception:
+        gates["v3_development_replay"] = {
+            "status": "NOT_RUN",
+            "reason": "development replay verifier unavailable",
+        }
+    gates["v3_private_instances"] = {
+        "status": "NOT_RUN",
+        "reason": "private dataset not supplied",
+    }
     report = {
-        "schema": "cleanroom.release-audit/v1",
+        "schema": "bankingenv.release-audit/v3",
         "archive": ARCHIVE_NAME,
+        "release_tag": args.tag,
+        "repository_commit": commit,
         "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+        "release_manifest_sha256": release_manifest["manifest_payload_sha256"],
         "file_count": len(members),
         "archive_bytes": archive.stat().st_size,
         "gates": gates,
         "terminal_state": terminal_state(gates),
+        "not_run_gates": sorted(name for name, gate in gates.items() if gate["status"] == "NOT_RUN"),
     }
+    report["gates"]["release_metadata_scan"] = gate_release_metadata_scan(report, members)
+    report["terminal_state"] = terminal_state(report["gates"])
+    report["not_run_gates"] = sorted(
+        name for name, gate in report["gates"].items() if gate["status"] == "NOT_RUN"
+    )
+    report["audit_sha256"] = hashlib.sha256(
+        json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     (out_dir / "release-audit.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     summary = {name: g["status"] for name, g in gates.items()}
     print(json.dumps({"archive": str(archive), "gates": summary,
                       "terminal_state": report["terminal_state"]}, indent=2))
-    if any(status == "FAIL" for status in summary.values()):
+    if report["terminal_state"] == "RELEASE_AUDIT_FAIL":
         raise SystemExit(1)
 
 

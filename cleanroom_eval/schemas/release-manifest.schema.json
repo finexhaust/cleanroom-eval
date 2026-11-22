@@ -7,6 +7,7 @@
     "schema",
     "release_id",
     "classification",
+    "release_tag",
     "repository_commit",
     "assets",
     "asset_count",
@@ -17,6 +18,7 @@
     "schema": {"const": "cleanroom.release-manifest/v1"},
     "release_id": {"pattern": "^cleanroom-[a-z0-9_.-]+$"},
     "classification": {"const": "CLEANROOM_SYNTHETIC"},
+    "release_tag": {"pattern": "^(unreleased|v[0-9]+\\.[0-9]+\\.[0-9]+([-.][0-9A-Za-z.]+)?)$"},
     "repository_commit": {"pattern": "^[0-9a-f]{40}$"},
     "assets": {
       "type": "array",
@@ -27,7 +29,7 @@
         "required": ["path", "bytes", "sha256"],
         "properties": {
           "path": {"type": "string", "not": {"pattern": "(^/|\\.\\.)"}},
-          "bytes": {"type": "integer", "minimum": 1},
+          "bytes": {"type": "integer", "minimum": 0},
           "sha256": {"pattern": "^[0-9a-f]{64}$"}
         }
       }
@@ -37,4 +39,3 @@
     "manifest_payload_sha256": {"pattern": "^[0-9a-f]{64}$"}
   }
 }
-

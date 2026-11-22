@@ -8,6 +8,7 @@ is retained so an independent reviewer can reproduce their exact bytes.
 
 from __future__ import annotations
 
+import argparse
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -136,7 +137,11 @@ VARIANTS: tuple[dict[str, str], ...] = (
 )
 
 
-def _episode(family: dict[str, Any], variant: dict[str, str], ordinal: int) -> dict[str, Any]:
+def _episode(
+    family: dict[str, Any],
+    variant: dict[str, str],
+    ordinal: int,
+) -> dict[str, Any]:
     slug = f"{family['id']}_{variant['id']}"
     actor = f"syn_{slug}_analyst"
     supervisor = f"syn_{slug}_supervisor"
@@ -405,16 +410,39 @@ def _write_json(path: Path, value: object) -> None:
     )
 
 
-def _asset(path: Path) -> dict[str, Any]:
+def _asset(path: Path, base: Path = ROOT) -> dict[str, Any]:
     payload = path.read_bytes()
     return {
-        "path": path.relative_to(ROOT).as_posix(),
+        "path": path.relative_to(base).as_posix(),
         "bytes": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
     }
 
 
-def build() -> None:
+def build(
+    *,
+    calendar_id: str | None = None,
+    episode_root: Path | None = None,
+    manifest_path: Path | None = None,
+    asset_base: Path | None = None,
+) -> None:
+    if calendar_id:
+        if calendar_id != "WEEKDAY_ONLY":
+            raise ValueError(f"unsupported business calendar: {calendar_id}")
+        episode_root = episode_root or ROOT / "episodes_v3"
+        manifest_path = manifest_path or ROOT / "sealed-set.manifest.v3.json"
+        asset_base = asset_base or ROOT
+        if episode_root == EPISODE_ROOT or manifest_path == ROOT / "sealed-set.manifest.v1.json":
+            raise ValueError("calendar-aware episodes cannot overwrite a frozen set")
+        from .build_sealed_episodes_v2 import build as build_v2
+
+        return build_v2(
+            set_tag="r3",
+            episode_root=episode_root,
+            manifest_path=manifest_path,
+            set_id="cmo_cleanroom_sealed_v3",
+            asset_base=asset_base,
+        )
     EPISODE_ROOT.mkdir(parents=True, exist_ok=True)
     for path in EPISODE_ROOT.glob("*.json"):
         path.unlink()
@@ -454,6 +482,9 @@ def build() -> None:
             "set_id": "cmo_cleanroom_sealed_v1",
             "classification": CLASSIFICATION,
             "status": "FROZEN",
+            "limitations": [
+                "Calendar validity was not checked for this frozen set; dated settlement and ledger events may fall on non-business days."
+            ],
             "assets": assets,
             "asset_count": len(assets),
             "asset_list_sha256": hashlib.sha256(
@@ -464,4 +495,19 @@ def build() -> None:
 
 
 if __name__ == "__main__":
-    build()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--calendar-id", choices=("WEEKDAY_ONLY",))
+    parser.add_argument("--episode-root", type=Path)
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--asset-base", type=Path)
+    args = parser.parse_args()
+    if not args.calendar_id and any(
+        (args.episode_root, args.manifest, args.asset_base)
+    ):
+        parser.error("output paths are only supported with --calendar-id")
+    build(
+        calendar_id=args.calendar_id,
+        episode_root=args.episode_root,
+        manifest_path=args.manifest,
+        asset_base=args.asset_base,
+    )

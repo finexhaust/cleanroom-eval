@@ -17,6 +17,7 @@ ceiling regardless of the nominal 4-8 floor in #115.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone
@@ -340,6 +341,12 @@ def _pick(items: list[Any], *, seed: str, count: int) -> list[Any]:
     return ranked[:count]
 
 
+def _next_weekday(value: datetime) -> datetime:
+    while value.weekday() >= 5:
+        value += timedelta(days=1)
+    return value
+
+
 # ---------------------------------------------------------------------------
 # Episode assembly
 # ---------------------------------------------------------------------------
@@ -361,11 +368,17 @@ def _episode_v2(family: dict[str, Any], variant: dict[str, str], ordinal: int, s
     obj = {key: f"syn_{slug}_{key}" for key in graph["objects"]}
 
     # Vary the start date by ordinal and the horizon by family; keep >= 7 days.
+    calendar_id = "WEEKDAY_ONLY" if set_tag != "r2" else None
     start = datetime(2036, 1, 1, 8, tzinfo=timezone.utc) + timedelta(days=ordinal * 37)
+    if calendar_id:
+        start = _next_weekday(start)
     horizon = graph["horizon_days"] + (ordinal % 3) * 2
 
     def at(day: int, hour: int, minute: int = 0) -> str:
-        return (start + timedelta(days=day, hours=hour - 8, minutes=minute)).isoformat().replace("+00:00", "Z")
+        value = start + timedelta(days=day, hours=hour - 8, minutes=minute)
+        if calendar_id:
+            value = _next_weekday(value)
+        return value.isoformat().replace("+00:00", "Z")
 
     versions = {key: 0 for key in graph["objects"]}
     states = {key: initial for key, (_, initial) in graph["objects"].items()}
@@ -500,7 +513,7 @@ def _episode_v2(family: dict[str, Any], variant: dict[str, str], ordinal: int, s
         for name, detector, description in sorted(traps)
     ]
 
-    return {
+    episode = {
         "schema": "cleanroom.capital-markets-episode/v1",
         "episode_id": f"episode_{slug}_v1",
         "title": f"{family['title']} — {variant['id'].title()} ({set_label})",
@@ -549,6 +562,9 @@ def _episode_v2(family: dict[str, Any], variant: dict[str, str], ordinal: int, s
         "reward_traps": reward_traps,
         "transfer_tags": family["tags"] + [variant["product"], "sealed_test", f"set_{set_tag}"],
     }
+    if calendar_id:
+        episode["calendar_id"] = calendar_id
+    return episode
 
 
 def _asset(path: Path, base: Path = ROOT) -> dict[str, Any]:
@@ -576,9 +592,14 @@ def build(
     run-time canaries, which derive from episode ids, producing a disjoint
     private set into ``episode_root``.
     """
+    if set_tag != "r2" and (episode_root is None or manifest_path is None):
+        raise ValueError("new calendar-aware sets require separate episode and manifest paths")
     episode_root = episode_root or EPISODE_ROOT_V2
     manifest_path = manifest_path or MANIFEST_V2
-    set_id = set_id or SET_ID_V2
+    set_id = set_id or (
+        SET_ID_V2 if set_tag == "r2"
+        else f"cmo_cleanroom_sealed_v{set_tag.removeprefix('r')}"
+    )
     asset_base = asset_base or ROOT
     episode_root.mkdir(parents=True, exist_ok=True)
     for path in episode_root.glob("*.json"):
@@ -595,6 +616,7 @@ def build(
 
     shared = [ROOT / "competency-taxonomy.v1.json", ROOT / "scenario-partitions.v1.json"]
     if asset_base != ROOT:
+        asset_base.mkdir(parents=True, exist_ok=True)
         copied = []
         for source in shared:
             target = asset_base / source.name
@@ -614,6 +636,11 @@ def build(
             "set_id": set_id,
             "classification": CLASSIFICATION,
             "status": "FROZEN",
+            "limitations": [
+                "Calendar validity was not checked for this frozen set; dated settlement and ledger events may fall on non-business days."
+            ] if set_tag == "r2" else [
+                "WEEKDAY_ONLY excludes market-specific public holidays; only weekends are excluded."
+            ],
             "assets": assets,
             "asset_count": len(assets),
             "asset_list_sha256": hashlib.sha256("".join(lines).encode("utf-8")).hexdigest(),
@@ -623,5 +650,18 @@ def build(
 
 
 if __name__ == "__main__":
-    built = build()
-    print(f"built {len(built)} v2 episodes -> {EPISODE_ROOT_V2}")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--set-tag", default="r2")
+    parser.add_argument("--episode-root", type=Path)
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--set-id")
+    parser.add_argument("--asset-base", type=Path)
+    args = parser.parse_args()
+    built = build(
+        set_tag=args.set_tag,
+        episode_root=args.episode_root,
+        manifest_path=args.manifest,
+        set_id=args.set_id,
+        asset_base=args.asset_base,
+    )
+    print(f"built {len(built)} episodes -> {args.episode_root or EPISODE_ROOT_V2}")

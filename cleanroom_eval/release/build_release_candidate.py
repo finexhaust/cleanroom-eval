@@ -105,7 +105,7 @@ explicit allowlist, never from the source repository's history.
 - Report issues to the repository owner; do not open public issues that
   quote unpublished material.
 """
-RUNTIME_REQUIREMENTS = "cryptography==46.0.5\njsonschema==4.26.0\nprefect==3.6.20\n"
+RUNTIME_REQUIREMENTS = "cryptography==46.0.5\njsonschema==4.26.0\nprefect==3.6.25\n"
 PYPROJECT = """[build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
@@ -117,7 +117,7 @@ description = "Clean-room capital-markets agent evaluation: sealed synthetic epi
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
-dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.20"]
+dependencies = ["cryptography>=42", "jsonschema>=4.20", "prefect==3.6.25"]
 
 [project.optional-dependencies]
 panel = ["httpx>=0.27", "python-dotenv>=1.0"]

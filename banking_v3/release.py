@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import hashlib
+import json
 import tarfile
 import tempfile
 
@@ -62,6 +63,9 @@ def export_release(output: str, calibration_root: str | None = None, dataset_roo
     report = {"schema": "bankingenv.release-audit/v3", "prefect_flow_run_id": str(flow_run.id),
               "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
               "file_count": len(members), "gates": gates, "terminal_state": build.terminal_state(gates)}
+    report_bytes = (json.dumps(report, indent=2) + "\n").encode("utf-8")
+    gates.update(build.gate_release_output_scans(members, report_bytes))
+    report["terminal_state"] = build.terminal_state(gates)
     write_json(root / "release-audit.json", report)
     print({"gates": {key: value["status"] for key, value in gates.items()}, "terminal_state": report["terminal_state"]})
     if any(value["status"] == "FAIL" for value in gates.values()):

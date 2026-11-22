@@ -359,6 +359,16 @@ def gate_path_metadata_scan(members) -> dict:
     return {"status": "PASS" if not problems else "FAIL", "problems": problems}
 
 
+def gate_release_output_scans(members, audit_report: bytes) -> dict:
+    """Re-run identifier and path scans on packaged files and the generated report."""
+    report_member = (tarfile.TarInfo("release-audit.json"), audit_report)
+    output_members = [*members, report_member]
+    return {
+        "internal_identifier_scan": gate_internal_identifier_scan(output_members),
+        "path_metadata_scan": gate_path_metadata_scan(output_members),
+    }
+
+
 def gate_license_inventory(members) -> dict:
     names = {info.name for info, _ in members}
     dependencies = []
@@ -553,7 +563,13 @@ def main() -> None:
         "gates": gates,
         "terminal_state": terminal_state(gates),
     }
-    (out_dir / "release-audit.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    report_bytes = (json.dumps(report, indent=2) + "\n").encode("utf-8")
+    gates.update(gate_release_output_scans(members, report_bytes))
+    report["gates"] = gates
+    report["terminal_state"] = terminal_state(gates)
+    (out_dir / "release-audit.json").write_bytes(
+        (json.dumps(report, indent=2) + "\n").encode("utf-8")
+    )
     summary = {name: g["status"] for name, g in gates.items()}
     print(json.dumps({"archive": str(archive), "gates": summary,
                       "terminal_state": report["terminal_state"]}, indent=2))

@@ -1,3 +1,4 @@
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -29,3 +30,31 @@ def test_runtime_version_literal_matches_package_version():
 
     declared = re.search(r'^version = "([^"]+)"$', build.PYPROJECT, re.M).group(1)
     assert banking_v3.__version__ == declared
+
+
+def test_release_output_scans_cover_audit_report_and_evidence_pack():
+    evidence = tarfile.TarInfo(
+        "cleanroom_eval/evidence/gates-2026-08/evidence.json"
+    )
+    members = [(evidence, b'{"detail":"/home/faz/private/report"}')]
+
+    scans = build.gate_release_output_scans(
+        members, b'{"detail":"/home/faz/private/audit"}'
+    )
+
+    assert scans["internal_identifier_scan"]["status"] == "FAIL"
+    assert {
+        hit["file"] for hit in scans["internal_identifier_scan"]["hits"]
+    } == {
+        "cleanroom_eval/evidence/gates-2026-08/evidence.json",
+        "release-audit.json",
+    }
+
+
+def test_release_output_scans_reject_unsafe_evidence_pack_paths():
+    evidence = tarfile.TarInfo("../evidence-pack.json")
+
+    scans = build.gate_release_output_scans([(evidence, b"{}")], b"{}")
+
+    assert scans["path_metadata_scan"]["status"] == "FAIL"
+    assert scans["path_metadata_scan"]["problems"][0]["entry"] == "../evidence-pack.json"

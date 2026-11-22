@@ -20,7 +20,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .contract import ASSET_DIR, digest, file_sha256, load_json, verify_bundle, verify_episode_set
+from .contract import ASSET_DIR, file_sha256, load_json, verify_bundle, verify_episode_set
 from . import free_run
 
 PREREG_NAME = "gates-preregistration.v1.json"

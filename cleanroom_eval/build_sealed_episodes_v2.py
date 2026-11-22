@@ -64,7 +64,7 @@ THIRD_ROLE = {
 
 def _graph(family_id: str, variant: dict[str, str], ordinal: int) -> dict[str, Any]:
     A, S, T = "operations_analyst", "operations_supervisor", THIRD_ROLE[family_id]
-    product = variant["product"]
+    variant["product"]
     if family_id == "lifecycle":
         return {
             "objects": {"subject": ("trade", "booked"), "case": ("case", "open"),
@@ -252,7 +252,6 @@ def _mutation_library(
     primaries = [i for i, e in enumerate(events) if not e.get("duplicate_of")]
     # Unauthorised actor: swap the approver for someone whose role is not permitted.
     for i in primaries:
-        roles_permitted = None  # resolved by caller through authorization map
         library.append({
             "mutation_id": f"mutation_{slug}_unauthorised_{i}",
             "description": f"Replace the actor of event {i + 1} with an unauthorised role.",

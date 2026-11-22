@@ -350,7 +350,7 @@ class CompatibleHTTPProvider:
                         response.headers.get("x-request-id", "").strip()
                     )
                 break
-            except ContractError as exc:
+            except ContractError:
                 self._record_failure(
                     arm_id, request, payload, request_sha256, evaluator_request_sha256,
                     started, statuses, "RESPONSE"

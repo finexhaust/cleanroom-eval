@@ -1,5 +1,7 @@
 {
   "artifact_count": 51,
+  "bankingenv_certificate_preregistration_id": "bankingenv_task_certificate_v1",
+  "bankingenv_certificate_preregistration_sha256": "6ded0ccc26848176908cc77af6507e360f78ac0ec49f0d352d01b577b9a3b3db",
   "episode_sets": {
     "v1": {
       "bound_runs": [
@@ -36,22 +38,20 @@
   },
   "preregistration_id": "cmo_cleanroom_gates_v1",
   "preregistration_sha256": "9314caee6be1cdee2fb9240851aa5809f14c16c3535d13ce412d19b25ba60208",
-  "bankingenv_certificate_preregistration_id": "bankingenv_task_certificate_v1",
-  "bankingenv_certificate_preregistration_sha256": "6ded0ccc26848176908cc77af6507e360f78ac0ec49f0d352d01b577b9a3b3db",
   "report_hashes": {
     "gates-preregistration.v1.json": "9314caee6be1cdee2fb9240851aa5809f14c16c3535d13ce412d19b25ba60208",
     "gates_report.json": "fd686d9869f3ca23984139ac268eae3e33b6245827330a54c79967c86f178c0d",
     "gates_report.md": "6c039d8288660f6c0b037de5430a14d33ec43ba23585ac9b49cbfd5b9e703b5a"
   },
-  "repository_commit": "5b2d2fba08748289c1f22e5c8863050eb6be9729",
+  "repository_commit": "a49d6818e14dfb66c518dbaf3a6bf04728462aad",
   "runner_code_sha256": {
     "cleanroom_eval/contract.py": "7987ebe838c08833389b4f36d29c4be0f9ce5154f24db7cb92fc95ed16c2c795",
-    "cleanroom_eval/cost_grader.py": "345d4487c43ce786aea765a50e065ff26736cae71adfecad4a2731ab671531bf",
-    "cleanroom_eval/episode_contract.py": "ff21ff6be8e2b1a4a2b5e519fa60240508911c3a001e5275b0fa3253f10f8e51",
-    "cleanroom_eval/fire_gates.py": "36432b99002d96ba950a771afff67456bda934a61d08edef577efa253d49d15f",
-    "cleanroom_eval/free_run.py": "7f0bc92aecd0e113bcffb4146a7e4a07fb84acffc469ce2599a3344eb28ba307",
-    "cleanroom_eval/real_provider.py": "52a25542e23782fd0ad2835facd63b856effcde0cc3213b7becaec24aaf1863d",
-    "cleanroom_eval/runner.py": "8f9193f1a04a4cf319dfbbf39ed3f827c0765ab0c896b0660d533d582807602c"
+    "cleanroom_eval/cost_grader.py": "99378bffdebc86da495b678e779d94e682781401bacd6bda31b97549bb82f822",
+    "cleanroom_eval/episode_contract.py": "dcdf755cef6731ce4600f2ac0470cd6a796f5e69af3ae261b2be87753174c49c",
+    "cleanroom_eval/fire_gates.py": "7d3a4d2de34b3fdeb435e7e1f81c88088c50ea67c1b80ea2fcf7b26ab4cd1a5c",
+    "cleanroom_eval/free_run.py": "c553ae65add04cf11420787789804449a8d69b4096cdfd754956ceb450c7f43d",
+    "cleanroom_eval/real_provider.py": "9832d18f485ebfdf854a11ee723ebbde7a8d04262a0604747983005bb91f445e",
+    "cleanroom_eval/runner.py": "3e691552c2a5591100b59606d98499674cb1a4b65e1285b195f38ae3118397f3"
   },
   "runs": {
     "baseline-v1": {

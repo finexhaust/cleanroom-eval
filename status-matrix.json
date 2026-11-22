@@ -1,0 +1,30 @@
+{
+  "schema": "cleanroom.status-matrix/v1",
+  "limits": [
+    {
+      "limit": "independent_review",
+      "status": "NOT_REVIEWED",
+      "evidence": "banking_v3/data/regeneration-receipt.json"
+    },
+    {
+      "limit": "model_difficulty",
+      "status": "NOT_MEASURED",
+      "evidence": "README.md"
+    },
+    {
+      "limit": "human_certification",
+      "status": "NOT_ISSUED",
+      "evidence": "README.md"
+    },
+    {
+      "limit": "standard_harness_execution",
+      "status": "NOT_MET",
+      "evidence": "README.md"
+    },
+    {
+      "limit": "embedded_episode_canaries",
+      "status": "NOT_MET",
+      "evidence": "SECURITY-RELEASE.md"
+    }
+  ]
+}

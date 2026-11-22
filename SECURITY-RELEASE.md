@@ -8,10 +8,10 @@ explicit allowlist, never from the source repository's history.
 - Every episode, name, institution and identifier is invented. The evidence
   summary binds results by hash and contains no transcripts, credentials or
   source-derived records.
-- Episodes deliberately embed canary values and reward traps; they are part
-  of the published task boundary. A model trained on this release loses
-  canary-based contamination detection; this is the standard public-benchmark
-  caveat.
+- Episodes do not carry sealed per-run canary values. Canary values, when
+  used by an external run, are per-run data and are not embedded in this
+  archive's sealed episodes. Any contamination interpretation therefore
+  requires the run-specific evidence and is not claimed here.
 - The evaluator-only citation oracle and all private gold are excluded and
   their absence is enforced by the release audit's leakage gate. The README
   step `verify_citation_task_set()` recomputes oracle invariants and is

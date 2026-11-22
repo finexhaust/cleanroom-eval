@@ -1,7 +1,7 @@
 # Current environment: BankingEnv v3
 
 The current document-grounded runtime, generation and evaluation instructions
-are in [BankingEnv v3](../docs/bankingenv-v3.md). The contract below describes
+are in [BankingEnv v3](../README.md). The contract below describes
 the historical v1/v2 fixtures, retained for reproduction. Historical results
 do not describe the regenerated dataset.
 

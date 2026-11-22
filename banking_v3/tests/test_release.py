@@ -1,9 +1,13 @@
 from pathlib import Path
+import hashlib
+import json
+import subprocess
 
 import pytest
 
 from cleanroom_eval import certify
 from cleanroom_eval.release import build_release_candidate as build
+from cleanroom_eval.status_gate import validate_status_matrix, validate_local_markdown_links
 
 
 def test_no_legacy_refusal_certificate_can_be_issued(tmp_path):
@@ -29,3 +33,21 @@ def test_runtime_version_literal_matches_package_version():
 
     declared = re.search(r'^version = "([^"]+)"$', build.PYPROJECT, re.M).group(1)
     assert banking_v3.__version__ == declared
+
+
+def test_status_matrix_and_local_result_links_are_gate_checked():
+    assert "independent_review" in validate_status_matrix()
+    assert validate_local_markdown_links() == []
+
+
+def test_evidence_manifest_is_bound_to_current_repository_and_runner_files():
+    root = Path(__file__).resolve().parents[2]
+    manifest = json.loads((root / "cleanroom_eval/evidence/gates-2026-08/evidence-manifest.json").read_text())
+    commit = manifest["repository_commit"]
+    subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=root, check=True,
+    )
+    for rel, expected in manifest["runner_code_sha256"].items():
+        actual = hashlib.sha256((root / rel).read_bytes()).hexdigest()
+        assert actual == expected

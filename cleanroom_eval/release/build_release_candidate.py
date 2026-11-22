@@ -50,10 +50,8 @@ ALLOW_DIRS = (
 )
 ALLOW_FILES = (
     "cleanroom_eval/README.md",
-    "docs/bankingenv-v3.md",
-    "docs/bankingenv-v3-model-panel.md",
+    "status-matrix.json",
     "banking_v3/data/regeneration-receipt.json",
-    "docs/technical-note-strategy-locking.md",
     "cleanroom_eval/evidence/__init__.py",
     "cleanroom_eval/release/__init__.py",
     "cleanroom_corpus/eval_adapters.py",
@@ -91,10 +89,10 @@ explicit allowlist, never from the source repository's history.
 - Every episode, name, institution and identifier is invented. The evidence
   summary binds results by hash and contains no transcripts, credentials or
   source-derived records.
-- Episodes deliberately embed canary values and reward traps; they are part
-  of the published task boundary. A model trained on this release loses
-  canary-based contamination detection; this is the standard public-benchmark
-  caveat.
+- Episodes do not carry sealed per-run canary values. Canary values, when
+  used by an external run, are per-run data and are not embedded in this
+  archive's sealed episodes. Any contamination interpretation therefore
+  requires run-specific evidence and is not claimed here.
 - The evaluator-only citation oracle and all private gold are excluded and
   their absence is enforced by the release audit's leakage gate. The README
   step `verify_citation_task_set()` recomputes oracle invariants and is
@@ -129,7 +127,7 @@ packages = ["cleanroom_eval", "cleanroom_eval.evidence", "cleanroom_eval.release
 cleanroom_eval = ["assets/**/*", "schemas/*", "mock_training/*", "README.md"]
 banking_v3 = ["data/development/**/*.json", "data/*.json"]
 """
-ROOT_README = (REPO_ROOT / "docs/bankingenv-v3.md").read_text(encoding="utf-8")
+ROOT_README = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 PUBLIC_CI = """name: BankingEnv contracts
 on: [pull_request, push]
 permissions:

@@ -98,6 +98,12 @@ remain private, including the randomly generated evaluation seed, answers,
 and reference trajectories. `receipt.json` contains publishable counts and
 hash commitments. Regeneration does not overwrite prior runs.
 
+CI checks the committed development package and its regeneration receipt
+against the current code, verifies the sealed sets, and checks
+`RELEASE-MANIFEST.sha256`. When generation code changes, regenerate and
+stage the development split and receipt together; refresh the checksum list
+for any changed release files.
+
 ## Evaluation boundary and split
 
 The model receives a case brief, document index, its own working state and

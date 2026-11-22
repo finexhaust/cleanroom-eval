@@ -129,7 +129,8 @@ packages = ["cleanroom_eval", "cleanroom_eval.evidence", "cleanroom_eval.release
 cleanroom_eval = ["assets/**/*", "schemas/*", "mock_training/*", "README.md"]
 banking_v3 = ["data/development/**/*.json", "data/*.json"]
 """
-ROOT_README = (REPO_ROOT / "docs/bankingenv-v3.md").read_text(encoding="utf-8")
+_readme = REPO_ROOT / "docs/bankingenv-v3.md"
+ROOT_README = (_readme if _readme.is_file() else REPO_ROOT / "README.md").read_text(encoding="utf-8")
 PUBLIC_CI = """name: BankingEnv contracts
 on: [pull_request, push]
 permissions:

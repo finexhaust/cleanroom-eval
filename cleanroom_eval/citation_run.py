@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-from collections import Counter
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
@@ -138,7 +137,7 @@ def _load_frozen_bundle(
         raise ContractError("citation run must use the canonical frozen manifest")
     if file_sha256(manifest_path) != CANONICAL_MANIFEST_SHA256:
         raise ContractError("canonical frozen manifest digest differs")
-    manifest = load_json(manifest_path)
+    load_json(manifest_path)
     asset_root = manifest_path.parent
     tasks = load_provider_tasks(
         asset_root / "citation_tasks" / "citation-tasks.v2.jsonl"

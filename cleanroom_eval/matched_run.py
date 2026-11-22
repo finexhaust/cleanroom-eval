@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
-from collections import Counter
 from collections.abc import Mapping, Sequence
 import json
 import os

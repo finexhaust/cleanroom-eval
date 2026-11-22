@@ -265,7 +265,7 @@ def render_html(report):
                      f"{clean['mean_score']:.2%}", clean['safety_cases'],
                      s['outcomes'].get('provider_error',0),s['outcomes'].get('invalid_json',0),
                      f"{s['median_actions']:g}", f"{s['median_output_tokens']:,.0f}",'Comparable' if s['comparison_eligible'] else 'UNRANKED: provider blocked'])
-    common=report['common']; protocol=report['protocol']
+    common=report['common']; report['protocol']
     result='<h1>BankingEnv v3: private model comparison</h1><p>'+esc(common['cases'])+' cases, '+esc(common['models'])+' live models; '+esc(common['episodes'])+' single-sample episodes. Scores independently replayed against frozen stateful graders.</p>'
     result+='<p class="warning"><strong>24 cases quarantined:</strong> the evidence-family policy says unique proof records; its grader counts unique issuers. Raw scores are preserved. The 168-case comparison excludes this ambiguity. Neither result is independently certified by a banking practitioner.</p>'
     result+=table(['Model','Raw 192 complete','Excluding ambiguity','168 rubric mean','168 safety cases','Provider errors','Invalid JSON','Median actions','Median output tokens','Status'],rows)

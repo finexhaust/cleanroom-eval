@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
-from .contract import canonical, digest
+from .contract import canonical
 
 SYSTEM = """You operate a synthetic banking case through tools. Reply with exactly one JSON object
 {"tool": "tool name", "args": {matching named arguments}}. Use the tool schemas in the observation.

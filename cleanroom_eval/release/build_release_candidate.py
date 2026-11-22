@@ -659,11 +659,8 @@ def main() -> None:
     )
     report["audit_sha256"] = hashlib.sha256(
         json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    ).hexdigest(    )
     (out_dir / "release-audit.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    summary = {name: g["status"] for name, g in gates.items()}
-    print(json.dumps({"archive": str(archive), "gates": summary,
-                      "terminal_state": report["terminal_state"]}, indent=2))
     if report["terminal_state"] == "RELEASE_AUDIT_FAIL":
         raise SystemExit(1)
 

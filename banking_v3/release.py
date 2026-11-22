@@ -16,7 +16,7 @@ from .contract import load_json, load_package, write_json
 from .evaluate import reference_rollout
 
 
-@flow(name="bankingenv-v3-release", persist_result=False, log_prints=True)
+@flow(name="bankingenv-v3-release", persist_result=False, log_prints=False)
 def export_release(
     output: str,
     calibration_root: str | None = None,
@@ -126,10 +126,6 @@ def export_release(
         json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     write_json(root / "release-audit.json", report)
-    print({
-        "gates": {key: value["status"] for key, value in report["gates"].items()},
-        "terminal_state": report["terminal_state"],
-    })
     if report["terminal_state"] in ("RELEASE_AUDIT_FAIL", "RELEASE_AUDIT_NOT_RUN"):
         raise ValueError("release audit is incomplete or failed; archive must not be published")
     (root / "EXPORT-OK").write_text(report["archive_sha256"] + "\n")

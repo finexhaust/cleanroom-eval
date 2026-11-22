@@ -1,9 +1,8 @@
 name: Release
 
 # Run by hand (Actions > Release > Run workflow) or through the API.
-# Creates the tag on a commit that is already on main and publishes the
-# GitHub release. Release notes and assets are read from `assets_ref`, so
-# large archives never have to be merged into main.
+# Creates the tag on a commit that is already on main, builds the release
+# from that exact checkout, and publishes the verified release assets.
 
 on:
   workflow_dispatch:
@@ -29,11 +28,11 @@ on:
         required: false
         type: string
       assets_ref:
-        description: "Branch or commit SHA holding notes_file and assets (default: target)"
+        description: "Branch or commit SHA holding notes_file and supplemental assets (default: target)"
         required: false
         type: string
       assets:
-        description: "Space-separated file paths on assets_ref to attach"
+        description: "Space-separated supplemental file paths on assets_ref to attach"
         required: false
         type: string
       latest:
@@ -109,8 +108,37 @@ jobs:
           for p in $ASSETS; do
             [[ "$p" =~ ^[A-Za-z0-9._/-]+$ && "$p" != *..* ]] || fail "bad asset path: $p"
             name=$(basename "$p")
+            case "$name" in
+              cleanroom-eval-release.tar.gz|release-audit.json|release-manifest.json)
+                fail "$name is generated from the target commit and cannot be supplied"
+                ;;
+            esac
             [[ ! -e "$RUNNER_TEMP/dist/$name" ]] || fail "two assets are both named $name"
             git show "$src:$p" > "$RUNNER_TEMP/dist/$name" || fail "asset $p not found on $src"
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build and verify target release
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          git checkout --detach "$TARGET"
+          [[ "$(git rev-parse HEAD)" == "$TARGET" ]] || fail "checkout does not match target"
+          [[ -z "$(git status --porcelain)" ]] || fail "target checkout is not clean"
+          python -m pip install .
+          python -m banking_v3 export-release \
+            --out "$RUNNER_TEMP/generated" --tag "$TAG" --commit "$TARGET"
+          python -m cleanroom_eval.contract verify-release \
+            --root "$RUNNER_TEMP/generated" \
+            --manifest "$RUNNER_TEMP/generated/release-manifest.json" \
+            --commit "$TARGET"
+          for name in cleanroom-eval-release.tar.gz release-audit.json release-manifest.json; do
+            [[ -f "$RUNNER_TEMP/generated/$name" ]] || fail "generated asset missing: $name"
+            [[ ! -e "$RUNNER_TEMP/dist/$name" ]] || fail "asset collision: $name"
+            cp "$RUNNER_TEMP/generated/$name" "$RUNNER_TEMP/dist/$name"
           done
 
       - name: Publish release

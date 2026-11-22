@@ -19,9 +19,20 @@ def main():
     grade.add_argument("--dataset", required=True)
     grade.add_argument("--transcripts", required=True)
     grade.add_argument("--out", required=True)
+    release = sub.add_parser("export-release")
+    release.add_argument("--out", required=True)
+    release.add_argument("--tag", required=True)
+    release.add_argument("--commit", required=True)
+    release.add_argument("--calibration-root")
+    release.add_argument("--dataset-root")
     args = parser.parse_args()
     from .flow import evaluate, regenerate, grade_transcripts
-    if args.command == "regenerate":
+    if args.command == "export-release":
+        from .release import export_release
+        export_release(
+            args.out, args.tag, args.commit, args.calibration_root, args.dataset_root
+        )
+    elif args.command == "regenerate":
         regenerate(args.out, args.development_seed, args.variants)
     elif args.command == "grade":
         grade_transcripts(args.dataset, args.transcripts, args.out)

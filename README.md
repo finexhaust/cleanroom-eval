@@ -138,7 +138,15 @@ review; a mechanically passing generated case is a development artifact.
 Run `python -m pytest banking_v3/tests -q`. The canonical release builder
 exports explicit code/data directories, excludes evaluation seeds, private
 answers and evaluator-only historical assets, and writes a byte manifest.
-This repository publishes that archive. Runtime version 2.1.3 and dataset
+The release workflow checks out the requested commit and runs the exporter:
+
+```sh
+python -m banking_v3 export-release --out /tmp/release \
+  --tag v2.1.3 --commit "$(git rev-parse HEAD)"
+```
+
+The export includes the archive, an audit bound to its tag and commit, and a
+commit-bound `release-manifest.json`. Runtime version 2.1.3 and dataset
 version 3.1 intentionally distinguish software from fixture versions.
 
 Runtime 2.1.3 changes no code path and no case: it updates this README now

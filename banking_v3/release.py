@@ -2,20 +2,52 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timezone
 import hashlib
+import re
+import subprocess
 import tarfile
 import tempfile
 
 from prefect import flow
 from prefect.runtime import flow_run
 
-from .contract import load_json, load_package, write_json
+from .contract import digest, load_json, load_package, write_json
 from .evaluate import reference_rollout
 
 
+def _seal_audit(report):
+    report["audit_payload_sha256"] = digest(report)
+    return report
+
+
 @flow(name="bankingenv-v3-release", persist_result=False, log_prints=True)
-def export_release(output: str, calibration_root: str | None = None, dataset_root: str | None = None):
+def export_release(
+    output: str,
+    tag: str,
+    commit: str,
+    calibration_root: str | None = None,
+    dataset_root: str | None = None,
+):
     from cleanroom_eval.release import build_release_candidate as build
+
+    if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?", tag):
+        raise ValueError("tag must look like v1.2.3")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("commit must be a full 40-character SHA")
+    head = subprocess.run(
+        ["git", "-C", str(build.REPO_ROOT), "rev-parse", "HEAD"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    if head != commit:
+        raise ValueError(f"checkout {head} does not match release commit {commit}")
+    status = subprocess.run(
+        ["git", "-C", str(build.REPO_ROOT), "status", "--porcelain"],
+        check=True, capture_output=True, text=True,
+    ).stdout
+    if status:
+        raise ValueError("release checkout must be clean")
+
     root = Path(output).resolve()
     root.mkdir(parents=True, exist_ok=True)
     if any(root.iterdir()):
@@ -36,6 +68,7 @@ def export_release(output: str, calibration_root: str | None = None, dataset_roo
         "license_inventory": build.gate_license_inventory(members),
         "deterministic_rebuild": build.gate_deterministic_rebuild(archive),
         "manifest_verification": build.gate_manifest_verification(members),
+        "tagged_tree": build.gate_tagged_tree(members, commit),
         "import_smoke": build.gate_import_smoke(archive),
         "clean_machine_tutorial": build.gate_tutorial_replay(archive),
     }
@@ -59,13 +92,24 @@ def export_release(output: str, calibration_root: str | None = None, dataset_roo
         gates["v3_private_instances"] = {"status": "FAIL" if private_hits else "PASS", "files_with_hits": private_hits, "instances_checked": len(held)}
     else:
         gates["v3_private_instances"] = {"status": "NOT_RUN", "reason": "private dataset not supplied"}
-    report = {"schema": "bankingenv.release-audit/v3", "prefect_flow_run_id": str(flow_run.id),
+    report = {"schema": "bankingenv.release-audit/v4", "tag": tag, "commit": commit,
+              "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+              "prefect_flow_run_id": str(flow_run.id),
               "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
               "file_count": len(members), "gates": gates, "terminal_state": build.terminal_state(gates)}
+    _seal_audit(report)
     write_json(root / "release-audit.json", report)
     print({"gates": {key: value["status"] for key, value in gates.items()}, "terminal_state": report["terminal_state"]})
     if any(value["status"] == "FAIL" for value in gates.values()):
         raise ValueError("release audit failed; archive must not be published")
+    from cleanroom_eval.contract import build_release_manifest
+    manifest = build_release_manifest(
+        root=root,
+        relative_paths=[archive.name, "release-audit.json"],
+        release_id=f"cleanroom-{tag.lower()}",
+        repository_commit=commit,
+    )
+    write_json(root / "release-manifest.json", manifest)
     with tarfile.open(archive) as tar:
         tar.extractall(root / "tree", filter="data")
     (root / "EXPORT-OK").write_text(report["archive_sha256"] + "\n")

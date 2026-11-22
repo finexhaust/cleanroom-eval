@@ -129,7 +129,10 @@ packages = ["cleanroom_eval", "cleanroom_eval.evidence", "cleanroom_eval.release
 cleanroom_eval = ["assets/**/*", "schemas/*", "mock_training/*", "README.md"]
 banking_v3 = ["data/development/**/*.json", "data/*.json"]
 """
-ROOT_README = (REPO_ROOT / "docs/bankingenv-v3.md").read_text(encoding="utf-8")
+ROOT_README_PATH = REPO_ROOT / "docs/bankingenv-v3.md"
+if not ROOT_README_PATH.is_file():
+    ROOT_README_PATH = REPO_ROOT / "README.md"
+ROOT_README = ROOT_README_PATH.read_text(encoding="utf-8")
 PUBLIC_CI = """name: BankingEnv contracts
 on: [pull_request, push]
 permissions:
@@ -169,17 +172,19 @@ def _iter_allowlist() -> list[tuple[Path, str]]:
     return [(seen[rel], rel) for rel in sorted(seen)]
 
 
+GENERATED_FILES = {
+    "cleanroom_corpus/__init__.py": MINIMAL_CORPUS_INIT.encode("utf-8"),
+    "SECURITY-RELEASE.md": SECURITY_STATEMENT.encode("utf-8"),
+    "requirements.txt": RUNTIME_REQUIREMENTS.encode("utf-8"),
+    "pyproject.toml": PYPROJECT.encode("utf-8"),
+    "README.md": ROOT_README.encode("utf-8"),
+    ".github/workflows/banking-v3.yml": PUBLIC_CI.encode("utf-8"),
+}
+
+
 def build_archive(out_dir: Path) -> Path:
     entries = _iter_allowlist()
     manifest_lines = []
-    generated = {
-        "cleanroom_corpus/__init__.py": MINIMAL_CORPUS_INIT.encode("utf-8"),
-        "SECURITY-RELEASE.md": SECURITY_STATEMENT.encode("utf-8"),
-        "requirements.txt": RUNTIME_REQUIREMENTS.encode("utf-8"),
-        "pyproject.toml": PYPROJECT.encode("utf-8"),
-        "README.md": ROOT_README.encode("utf-8"),
-        ".github/workflows/banking-v3.yml": PUBLIC_CI.encode("utf-8"),
-    }
     payloads: list[tuple[str, bytes]] = []
     for path, rel in entries:
         blob = path.read_bytes()
@@ -190,7 +195,7 @@ def build_archive(out_dir: Path) -> Path:
                 if not line.lstrip().startswith("-r ")
             ).encode("utf-8")
         payloads.append((rel, blob))
-    for rel, blob in generated.items():
+    for rel, blob in GENERATED_FILES.items():
         payloads.append((rel, blob))
     payloads.sort(key=lambda pair: pair[0])
     for rel, blob in payloads:
@@ -407,6 +412,35 @@ def gate_manifest_verification(members) -> dict:
         if name not in listed and name != "RELEASE-MANIFEST.sha256":
             mismatches.append({"file": name, "reason": "present but unlisted"})
     return {"status": "PASS" if not mismatches else "FAIL", "mismatches": mismatches}
+
+
+def gate_tagged_tree(members, commit: str) -> dict:
+    """Compare every unmodified archive source file with the requested Git tree."""
+    entries = _iter_allowlist()
+    source_names = {rel for _, rel in entries}
+    expected_names = source_names | set(GENERATED_FILES) | {"RELEASE-MANIFEST.sha256"}
+    by_name = {info.name: blob for info, blob in members}
+    problems = []
+    if len(by_name) != len(members):
+        problems.append({"reason": "duplicate archive path"})
+    for name in sorted(expected_names - by_name.keys()):
+        problems.append({"file": name, "reason": "missing from archive"})
+    for name in sorted(by_name.keys() - expected_names):
+        problems.append({"file": name, "reason": "not in release allowlist"})
+    generated_or_transformed = set(GENERATED_FILES) | {
+        "requirements-test.txt",
+        "RELEASE-MANIFEST.sha256",
+    }
+    for path, rel in entries:
+        if rel in generated_or_transformed:
+            continue
+        result = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "show", f"{commit}:{rel}"],
+            capture_output=True,
+        )
+        if result.returncode or by_name.get(rel) != result.stdout:
+            problems.append({"file": rel, "reason": "differs from tagged tree"})
+    return {"status": "PASS" if not problems else "FAIL", "problems": problems}
 
 
 def gate_import_smoke(archive_path: Path) -> dict:

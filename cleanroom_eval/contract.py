@@ -811,6 +811,7 @@ def _main() -> int:
     )
     parser.add_argument("--root", type=Path, default=ASSET_DIR)
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--commit")
     parser.add_argument("--episode-dir", default="episodes_v2")
     parser.add_argument("--set-manifest", default="sealed-set.manifest.v2.json")
     args = parser.parse_args()
@@ -825,6 +826,8 @@ def _main() -> int:
             parser.error("--manifest is required for verify-release")
         manifest = load_json(args.manifest)
         verify_release_manifest(manifest, root=args.root)
+        if args.commit is not None and manifest["repository_commit"] != args.commit:
+            raise ContractError("release manifest is bound to a different commit")
         result = {"status": "PASS", "manifest": str(args.manifest)}
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

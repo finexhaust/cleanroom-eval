@@ -292,10 +292,10 @@ def gate_registry_identity_scan(members) -> dict:
     """
     try:
         from cleanroom_eval.release import registry_identity
-    except ImportError as exc:
+    except ImportError:
         # Expected when the audit is re-run from the published archive, which
         # does not carry the private module. Never a silent pass.
-        return {"status": "NOT_RUN", "reason": f"private needle module absent: {exc!r}"}
+        return {"status": "NOT_RUN", "reason": "private needle module unavailable"}
     return registry_identity.scan_members(members)
 
 
@@ -498,25 +498,34 @@ def gate_tutorial_replay(archive_path: Path) -> dict:
 
 
 def terminal_state(gates: dict) -> str:
+    not_run = sorted(name for name, gate in gates.items() if gate["status"] == "NOT_RUN")
+
+    def with_not_run(state: str) -> str:
+        if not_run:
+            return f"{state}_WITH_GATES_NOT_RUN:{','.join(not_run)}"
+        return state
+
     if gates["private_gold_leak"]["status"] == "FAIL":
-        return "PRIVATE_GOLD_LEAK"
+        return with_not_run("PRIVATE_GOLD_LEAK")
     if (gates["secret_scan"]["status"] == "FAIL"
             or gates["internal_identifier_scan"]["status"] == "FAIL"
             or gates["registry_identity_scan"]["status"] == "FAIL"):
-        return "SECRET_OR_IDENTIFIER_LEAK"
+        return with_not_run("SECRET_OR_IDENTIFIER_LEAK")
     if gates["source_shingle_overlap"]["status"] == "FAIL":
-        return "SOURCE_OVERLAP_DETECTED"
+        return with_not_run("SOURCE_OVERLAP_DETECTED")
     if gates["license_inventory"]["status"] == "FAIL":
-        return "RIGHTS_OR_LICENSE_UNRESOLVED"
+        return with_not_run("RIGHTS_OR_LICENSE_UNRESOLVED")
     if gates["deterministic_rebuild"]["status"] == "FAIL" or gates["import_smoke"]["status"] == "FAIL":
-        return "RUNTIME_NOT_REPRODUCIBLE"
+        return with_not_run("RUNTIME_NOT_REPRODUCIBLE")
     if gates["clean_machine_tutorial"]["status"] != "PASS":
-        return "RUNTIME_NOT_REPRODUCIBLE"
+        return with_not_run("RUNTIME_NOT_REPRODUCIBLE")
     failed = sorted(name for name, gate in gates.items() if gate["status"] == "FAIL")
     if failed:
         # Gates without a dedicated state above (path metadata, manifest
         # verification, caller-added gates) must not fall through to a PASS.
-        return "RELEASE_AUDIT_FAIL"
+        return with_not_run("RELEASE_AUDIT_FAIL")
+    if not_run:
+        return f"RELEASE_AUDIT_GATES_NOT_RUN:{','.join(not_run)}"
     if any(g["status"] != "PASS" or g.get("limitation") for g in gates.values()):
         return "RELEASE_AUDIT_PASS_WITH_LIMITATIONS"
     return "RELEASE_AUDIT_PASS"

@@ -7,23 +7,20 @@ Use banking_v3 for new measured runs; no certification is implied by a run.
 from __future__ import annotations
 
 import argparse
-import datetime
 import hashlib
 import json
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
 from . import free_run
-from .contract import file_sha256, load_json, validate_schema
+from .contract import file_sha256, load_json
 from .issue_certificates import (
     DEFAULT_EVIDENCE,
     DEFAULT_OUT,
     DEFAULT_PREREG,
     DEFAULT_RUNS,
     DEFAULT_SEALED,
-    assemble as issue_assemble,
     _sha256_file,
 )
 

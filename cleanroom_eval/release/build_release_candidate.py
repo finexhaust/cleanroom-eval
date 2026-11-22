@@ -145,6 +145,9 @@ jobs:
           python-version: '3.12'
       - run: pip install -e '.[panel]' pytest==9.0.2
       - run: python -m pytest banking_v3/tests -q
+      - run: python -m cleanroom_eval.contract verify-bundle
+      - run: python -m cleanroom_eval.contract verify-set
+      - run: sha256sum -c RELEASE-MANIFEST.sha256
 """
 
 

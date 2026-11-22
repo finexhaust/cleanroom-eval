@@ -22,6 +22,11 @@ def test_public_release_allows_v3_runtime_but_not_private_data():
     assert '"banking_v3"' in build.PYPROJECT
 
 
+def test_public_ci_matches_committed_workflow():
+    workflow = Path(__file__).resolve().parents[2] / ".github/workflows/banking-v3.yml"
+    assert build.PUBLIC_CI == workflow.read_text()
+
+
 def test_runtime_version_literal_matches_package_version():
     """banking_v3.__version__ must equal the version the release pyproject declares."""
     import re

@@ -72,7 +72,7 @@
       "status": "PASS"
     },
     "registry_identity_scan": {
-      "reason": "cast-plane verifier not present at /home/faz/census_work/verify_cast_world.py",
+      "reason": "private needle module unavailable",
       "status": "NOT_RUN"
     },
     "secret_scan": {
@@ -85,5 +85,5 @@
     }
   },
   "schema": "cleanroom.release-audit/v1",
-  "terminal_state": "RELEASE_AUDIT_PASS_WITH_LIMITATIONS"
+  "terminal_state": "RELEASE_AUDIT_GATES_NOT_RUN:registry_identity_scan,source_shingle_overlap"
 }

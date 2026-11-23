@@ -54,6 +54,7 @@ ALLOW_FILES = (
     "docs/bankingenv-v3.md",
     "docs/bankingenv-v3-model-panel.md",
     "banking_v3/data/regeneration-receipt.json",
+    "banking_v3/data/limits-status.v1.json",
     "docs/technical-note-strategy-locking.md",
     "cleanroom_eval/evidence/__init__.py",
     "cleanroom_eval/release/__init__.py",
@@ -143,6 +144,11 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -e '.[panel]' pytest==9.0.2
+      - run: python -m cleanroom_eval.contract verify-bundle
+      - run: python -m cleanroom_eval.contract verify-set
+      - run: python -m cleanroom_eval.contract verify-limits
+      - run: sha256sum -c RELEASE-MANIFEST.sha256
+      - run: python -m banking_v3.release check-receipt
       - run: python -m pytest banking_v3/tests -q
 """
 

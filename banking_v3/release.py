@@ -59,9 +59,12 @@ def export_release(output: str, calibration_root: str | None = None, dataset_roo
         gates["v3_private_instances"] = {"status": "FAIL" if private_hits else "PASS", "files_with_hits": private_hits, "instances_checked": len(held)}
     else:
         gates["v3_private_instances"] = {"status": "NOT_RUN", "reason": "private dataset not supplied"}
+    build.scrub_not_run_reasons(gates)
     report = {"schema": "bankingenv.release-audit/v3", "prefect_flow_run_id": str(flow_run.id),
               "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
-              "file_count": len(members), "gates": gates, "terminal_state": build.terminal_state(gates)}
+              "file_count": len(members), "gates": gates,
+              "not_run_gates": sorted(name for name, gate in gates.items() if gate.get("status") == "NOT_RUN"),
+              "terminal_state": build.terminal_state(gates)}
     write_json(root / "release-audit.json", report)
     print({"gates": {key: value["status"] for key, value in gates.items()}, "terminal_state": report["terminal_state"]})
     if any(value["status"] == "FAIL" for value in gates.values()):

@@ -497,6 +497,27 @@ def gate_tutorial_replay(archive_path: Path) -> dict:
     }
 
 
+def scrub_not_run_reasons(gates: dict) -> dict:
+    """Redact machine paths and local identifiers from NOT_RUN reasons.
+
+    A gate that did not run must explain itself without publishing the
+    operator's filesystem (#14). The 2.1.3 audit carried
+    ``/home/<user>/...`` inside a NOT_RUN reason; historical reports stay
+    as published, new ones are scrubbed before the report is written.
+    """
+    for gate in gates.values():
+        if not isinstance(gate, dict) or gate.get("status") != "NOT_RUN":
+            continue
+        reason = gate.get("reason")
+        if not isinstance(reason, str):
+            continue
+        text = reason
+        for pattern in INTERNAL_PATTERNS:
+            text = re.sub(pattern, "[redacted]", text)
+        gate["reason"] = text
+    return gates
+
+
 def terminal_state(gates: dict) -> str:
     if gates["private_gold_leak"]["status"] == "FAIL":
         return "PRIVATE_GOLD_LEAK"
@@ -517,6 +538,11 @@ def terminal_state(gates: dict) -> str:
         # Gates without a dedicated state above (path metadata, manifest
         # verification, caller-added gates) must not fall through to a PASS.
         return "RELEASE_AUDIT_FAIL"
+    not_run = sorted(name for name, gate in gates.items() if gate.get("status") == "NOT_RUN")
+    if not_run:
+        # #14: a release in which gates did not run must never carry the
+        # state used when every gate ran. The report names which gates.
+        return "RELEASE_AUDIT_PASS_WITH_NOT_RUN_GATES"
     if any(g["status"] != "PASS" or g.get("limitation") for g in gates.values()):
         return "RELEASE_AUDIT_PASS_WITH_LIMITATIONS"
     return "RELEASE_AUDIT_PASS"
@@ -544,6 +570,7 @@ def main() -> None:
         "import_smoke": gate_import_smoke(archive),
         "clean_machine_tutorial": gate_tutorial_replay(archive),
     }
+    scrub_not_run_reasons(gates)
     report = {
         "schema": "cleanroom.release-audit/v1",
         "archive": ARCHIVE_NAME,
@@ -551,6 +578,7 @@ def main() -> None:
         "file_count": len(members),
         "archive_bytes": archive.stat().st_size,
         "gates": gates,
+        "not_run_gates": sorted(name for name, gate in gates.items() if gate.get("status") == "NOT_RUN"),
         "terminal_state": terminal_state(gates),
     }
     (out_dir / "release-audit.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

@@ -157,6 +157,8 @@
   },
   "runs_store": "cleanroom-runs-store-v1",
   "schema": "cleanroom.gates-evidence-manifest/v1",
+  "binding_status": "HISTORICAL",
+  "binding_note": "repository_commit and runner_code_sha256 record the August 2026 generation environment, which this repository no longer holds and whose runner digests no longer match the shipped files. The episode-set digests and verdict bindings remain the verified record; this manifest is historical evidence, not a binding on the current tree.",
   "verdict_qualification": "H0-H1 supported on the frozen harness (v2). H2-H3 supported for the substituted arms recorded in model-identities.json; the originally named model arms were not run.",
   "verdicts": {
     "H0": "SUPPORTED",

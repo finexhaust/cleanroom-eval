@@ -1,0 +1,47 @@
+{
+  "schema": "bankingenv.limits-status/v1",
+  "rows": [
+    {
+      "limit": "independent_review",
+      "value": "NOT_REVIEWED",
+      "artifact": "banking_v3/data/regeneration-receipt.json",
+      "artifact_sha256": "ce11265c7b087945a467b1b68762bb6abeacce2029cd810198b357093b56b364"
+    },
+    {
+      "limit": "model_difficulty",
+      "value": "NOT_MEASURED",
+      "artifact": "banking_v3/data/regeneration-receipt.json",
+      "artifact_sha256": "ce11265c7b087945a467b1b68762bb6abeacce2029cd810198b357093b56b364"
+    },
+    {
+      "limit": "human_certification",
+      "value": "NOT_ISSUED",
+      "artifact": "banking_v3/data/regeneration-receipt.json",
+      "artifact_sha256": "ce11265c7b087945a467b1b68762bb6abeacce2029cd810198b357093b56b364"
+    },
+    {
+      "limit": "validation_level",
+      "value": "MECHANICAL_ONLY",
+      "artifact": "banking_v3/data/regeneration-receipt.json",
+      "artifact_sha256": "ce11265c7b087945a467b1b68762bb6abeacce2029cd810198b357093b56b364"
+    },
+    {
+      "limit": "results_aggregate_artifact",
+      "value": "NOT_HELD",
+      "artifact": "docs/bankingenv-v3-model-panel.md",
+      "artifact_sha256": "d0c1932c703cf94e6180bec3df8b64025bb15fb06688af7583163c5a3110e262"
+    },
+    {
+      "limit": "episode_canaries",
+      "value": "PER_RUN_ONLY",
+      "artifact": "SECURITY-RELEASE.md",
+      "artifact_sha256": "ece5bd74a0e14ecfbaae938588f6f63e539e26eb7e1bac1efc29b254e46c9968"
+    },
+    {
+      "limit": "standard_harness_execution",
+      "value": "NOT_MET",
+      "artifact": "cleanroom_eval/evidence/gates-2026-08/evidence-manifest.json",
+      "artifact_sha256": "07531da6f414a545d6563120b3def1bf4118e1fb67f3f31a70861b3b2d2372cc"
+    }
+  ]
+}

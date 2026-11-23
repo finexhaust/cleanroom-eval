@@ -73,8 +73,8 @@ or a vendor-optimized native-tool leaderboard.
 
 All 192 private cases were assigned to each working arm. Every one of the 24
 ambiguous evidence cases is excluded from the primary comparison, including
-cases with other errors. The original raw scores remain in the
-[aggregate artifact](evaluation/bankingenv-v3-model-comparison-20261020.json).
+cases with other errors. The original raw scores are not held in this
+repository.
 
 | Model | Complete / 168 | Completion | Mean of eight checks | Control-breach cases |
 |---|---:|---:|---:|---:|

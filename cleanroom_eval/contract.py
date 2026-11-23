@@ -803,11 +803,48 @@ def verify_episode_set(
     }
 
 
+def verify_limits(*, repo_root: Path | None = None) -> dict[str, Any]:
+    """#17: the stated limits live in data, and a gate reads them.
+
+    ``banking_v3/data/limits-status.v1.json`` carries one row per stated
+    limit, each bound to the artifact that evidences it by digest. The gate
+    fails when a row is dropped or added, when a linked artifact is missing,
+    or when its digest no longer matches the row.
+    """
+    root = (repo_root or Path(__file__).resolve().parents[1]).resolve()
+    matrix = load_json(root / "banking_v3/data/limits-status.v1.json")
+    if not isinstance(matrix, Mapping) or matrix.get("schema") != "bankingenv.limits-status/v1":
+        raise ContractError("limits status matrix has an unknown schema")
+    rows = matrix.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise ContractError("limits status matrix has no rows")
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise ContractError("limits status row must be an object")
+        for field in ("limit", "value", "artifact", "artifact_sha256"):
+            if not isinstance(row.get(field), str) or not row[field]:
+                raise ContractError(f"limits status row lacks {field}")
+        if row["limit"] in seen:
+            raise ContractError(f"duplicate limits status row: {row['limit']}")
+        seen.add(row["limit"])
+        path = (root / row["artifact"]).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError as exc:
+            raise ContractError(f"limits artifact escapes the repository: {row['artifact']}") from exc
+        if not path.is_file() or path.is_symlink():
+            raise ContractError(f"limits artifact is missing: {row['artifact']}")
+        if file_sha256(path) != row["artifact_sha256"]:
+            raise ContractError(f"limits artifact digest differs: {row['artifact']}")
+    return {"status": "PASS", "limits": sorted(seen), "rows": len(rows)}
+
+
 def _main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=("verify-bundle", "verify-release", "verify-set"),
+        choices=("verify-bundle", "verify-limits", "verify-release", "verify-set"),
     )
     parser.add_argument("--root", type=Path, default=ASSET_DIR)
     parser.add_argument("--manifest", type=Path)
@@ -816,6 +853,8 @@ def _main() -> int:
     args = parser.parse_args()
     if args.command == "verify-bundle":
         result = verify_bundle(args.root)
+    elif args.command == "verify-limits":
+        result = verify_limits()
     elif args.command == "verify-set":
         result = verify_episode_set(
             args.root, episode_dir=args.episode_dir, manifest_name=args.set_manifest

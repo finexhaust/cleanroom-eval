@@ -497,6 +497,35 @@ def gate_tutorial_replay(archive_path: Path) -> dict:
     }
 
 
+def gate_postrelease_artifact_scan(report: dict, evidence_dir: Path) -> dict:
+    """#16: scan the release's own post-archive outputs.
+
+    The archive scans stop at the archive. The audit report is written
+    after it, and the evidence pack ships beside it; both must clear the
+    same secret and identifier scans before a release can complete. The
+    scan covers the report as composed so far (its own entry is excluded
+    to avoid self-reference) and every file of the evidence pack.
+    """
+    hits: list[dict] = []
+
+    def _scan(name: str, text: str) -> None:
+        for pattern in SECRET_PATTERNS:
+            if re.search(pattern, text):
+                hits.append({"file": name, "pattern": pattern})
+        for pattern in INTERNAL_PATTERNS:
+            for match in set(re.findall(pattern, text)):
+                hits.append({"file": name, "pattern": pattern, "match": match})
+
+    _scan("release-audit.json", json.dumps(report, sort_keys=True))
+    evidence_dir = evidence_dir.resolve()
+    if not evidence_dir.is_dir():
+        return {"status": "NOT_RUN", "reason": "evidence pack directory not present"}
+    for path in sorted(evidence_dir.iterdir()):
+        if path.is_file():
+            _scan(str(path.relative_to(REPO_ROOT)), _text(path.read_bytes()))
+    return {"status": "PASS" if not hits else "FAIL", "hits": hits[:50]}
+
+
 def scrub_not_run_reasons(gates: dict) -> dict:
     """Redact machine paths and local identifiers from NOT_RUN reasons.
 
@@ -578,9 +607,14 @@ def main() -> None:
         "file_count": len(members),
         "archive_bytes": archive.stat().st_size,
         "gates": gates,
-        "not_run_gates": sorted(name for name, gate in gates.items() if gate.get("status") == "NOT_RUN"),
-        "terminal_state": terminal_state(gates),
     }
+    # #16: the audit report and the shipped evidence pack must clear the same
+    # scans as the archive. The gate sees the report as composed so far;
+    # its own entry is added afterwards.
+    gates["postrelease_artifact_scan"] = gate_postrelease_artifact_scan(
+        report, REPO_ROOT / "cleanroom_eval/evidence/gates-2026-08")
+    report["not_run_gates"] = sorted(name for name, gate in gates.items() if gate.get("status") == "NOT_RUN")
+    report["terminal_state"] = terminal_state(gates)
     (out_dir / "release-audit.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     summary = {name: g["status"] for name, g in gates.items()}
     print(json.dumps({"archive": str(archive), "gates": summary,

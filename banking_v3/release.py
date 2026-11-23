@@ -1,7 +1,9 @@
 """One allowlisted, audited release tree for the public cleanroom-eval distribution."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
+import argparse
 import hashlib
 import tarfile
 import tempfile
@@ -14,7 +16,8 @@ from .evaluate import reference_rollout
 
 
 @flow(name="bankingenv-v3-release", persist_result=False, log_prints=True)
-def export_release(output: str, calibration_root: str | None = None, dataset_root: str | None = None):
+def export_release(output: str, calibration_root: str | None = None, dataset_root: str | None = None,
+                   release_tag: str | None = None, repository_commit: str | None = None):
     from cleanroom_eval.release import build_release_candidate as build
     root = Path(output).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -66,7 +69,13 @@ def export_release(output: str, calibration_root: str | None = None, dataset_roo
     gates["postrelease_artifact_scan"] = build.gate_postrelease_artifact_scan(
         report, build.REPO_ROOT / "cleanroom_eval/evidence/gates-2026-08")
     report["not_run_gates"] = sorted(name for name, gate in gates.items() if gate.get("status") == "NOT_RUN")
+    # #13: the published audit names its release, its commit, its generation
+    # time and its own digest.
+    report["release_tag"] = release_tag
+    report["repository_commit"] = repository_commit or build._git_head()
+    report["generated_at"] = datetime.now(timezone.utc).isoformat()
     report["terminal_state"] = build.terminal_state(gates)
+    report["audit_sha256"] = build.audit_self_digest(report)
     write_json(root / "release-audit.json", report)
     print({"gates": {key: value["status"] for key, value in gates.items()}, "terminal_state": report["terminal_state"]})
     if any(value["status"] == "FAIL" for value in gates.values()):
@@ -96,3 +105,52 @@ def stage_development(dataset_root: str, destination: str):
     copytree(dataset / "development", dest / "development")
     write_json(dest / "regeneration-receipt.json", receipt)
     return {"cases": manifest["case_count"], "private_cases_exported": 0}
+
+
+RECEIPT_PATH = Path(__file__).resolve().parents[1] / "banking_v3/data/regeneration-receipt.json"
+
+
+def check_receipt(path: Path = RECEIPT_PATH) -> dict:
+    """#15: the receipt must bind the code this repository ships.
+
+    ``code_sha256`` records the generator at dataset-generation time and is
+    historical. ``shipped_code_sha256`` records the code shipped beside the
+    dataset and must be updated by any push that changes banking_v3/*.py.
+    """
+    from .flow import code_commitment
+
+    receipt = load_json(path)
+    shipped = receipt.get("shipped_code_sha256")
+    if not isinstance(shipped, str) or shipped != code_commitment():
+        raise ValueError(
+            "regeneration receipt does not bind the shipped generator: update "
+            "shipped_code_sha256 in banking_v3/data/regeneration-receipt.json "
+            "in the same push that changes banking_v3 code"
+        )
+    return {"shipped_code_sha256": shipped}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    export = commands.add_parser("export", help="build the release archive and audit (#13)")
+    export.add_argument("--output", required=True)
+    export.add_argument("--calibration-root", default=None)
+    export.add_argument("--dataset-root", default=None)
+    export.add_argument("--tag", default=None, help="release tag, e.g. v2.1.4")
+    export.add_argument("--commit", default=None, help="40-character release commit")
+    receipt = commands.add_parser("check-receipt", help="verify the receipt binds the shipped code (#15)")
+    receipt.add_argument("--path", default=str(RECEIPT_PATH))
+    args = parser.parse_args()
+    if args.command == "export":
+        export_release(
+            output=args.output, calibration_root=args.calibration_root,
+            dataset_root=args.dataset_root, release_tag=args.tag,
+            repository_commit=args.commit,
+        )
+    else:
+        print(check_receipt(Path(args.path)))
+
+
+if __name__ == "__main__":
+    main()

@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -577,10 +578,31 @@ def terminal_state(gates: dict) -> str:
     return "RELEASE_AUDIT_PASS"
 
 
+def _git_head() -> str | None:
+    """Best-effort commit identity for the audit report (#13)."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+            timeout=15, cwd=REPO_ROOT, check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    commit = result.stdout.strip()
+    return commit if re.fullmatch(r"[0-9a-f]{40}", commit) else None
+
+
+def audit_self_digest(report: dict) -> str:
+    """SHA-256 over the canonical JSON of the report without audit_sha256 (#13)."""
+    unsigned = {key: value for key, value in report.items() if key != "audit_sha256"}
+    return hashlib.sha256(json.dumps(unsigned, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default=str(Path.home() / ".local/share/finexhaust/cleanroom-release"))
     parser.add_argument("--corpora", default=str(Path.home() / ".local/share/finexhaust/corpora"))
+    parser.add_argument("--tag", default=None, help="release tag this audit accompanies, e.g. v2.1.4")
+    parser.add_argument("--commit", default=None, help="40-character commit the release is built from")
     args = parser.parse_args()
     out_dir = Path(args.out)
 
@@ -614,7 +636,13 @@ def main() -> None:
     gates["postrelease_artifact_scan"] = gate_postrelease_artifact_scan(
         report, REPO_ROOT / "cleanroom_eval/evidence/gates-2026-08")
     report["not_run_gates"] = sorted(name for name, gate in gates.items() if gate.get("status") == "NOT_RUN")
+    # #13: the audit names its release, its commit, its generation time and
+    # its own digest, so a consumer can bind the report to a tag.
+    report["release_tag"] = args.tag
+    report["repository_commit"] = args.commit or _git_head()
+    report["generated_at"] = datetime.now(timezone.utc).isoformat()
     report["terminal_state"] = terminal_state(gates)
+    report["audit_sha256"] = audit_self_digest(report)
     (out_dir / "release-audit.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     summary = {name: g["status"] for name, g in gates.items()}
     print(json.dumps({"archive": str(archive), "gates": summary,
